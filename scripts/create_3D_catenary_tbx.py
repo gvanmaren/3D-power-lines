@@ -113,12 +113,12 @@ def main():
 
         else:
             # debug
-            input_source = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2\Transmission_Lines\Seattle_Utility_Sample.gdb\Attachment_Points'
+            input_source = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines\Seattle_Utility_Sample.gdb\Attachment_Points'
             line_weight = 1.096
             horizontal_tension = 4500
-            output_features = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2\Transmission_Lines\Testing.gdb\catenary3D'
+            output_features = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines\Testing.gdb\catenary3D'
 
-            home_directory = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2\Transmission_Lines'
+            home_directory = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines'
             layer_directory = home_directory + "\\layer_files"
             rule_directory = home_directory + "\\rule_packages"
             log_directory = home_directory + "\\Logs"
@@ -129,6 +129,9 @@ def main():
         arcpy.env.overwriteOutput = True
 
         start_time = time.clock()
+
+        default_SagToSpanRatio = 0.035  # This number is used in the book. TODO make this user variable
+        sag_to_span_ratio = default_SagToSpanRatio
 
         # check if input exists
         if arcpy.Exists(input_source):
@@ -153,10 +156,13 @@ def main():
         catenary, guide_lines = create_3D_catenary.makeSpans(lc_scratch_ws=scratch_ws,
                                                 lc_inPoints=input_source_copy,
                                                 lc_testLineWeight=float(line_weight),
+                                                lc_sag_to_span_ratio=sag_to_span_ratio,
                                                 lc_horizontal_tension=float(horizontal_tension),
                                                 lc_output_features=output_features,
                                                 lc_debug=verbose,
-                                                lc_use_in_memory=False)
+                                                lc_use_in_memory=False,
+                                                lc_cleanup=True,
+                                                lc_caller=TOOLNAME)
 
         end_time = time.clock()
 

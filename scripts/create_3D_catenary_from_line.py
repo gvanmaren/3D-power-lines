@@ -28,6 +28,8 @@ if 'common_lib' in sys.modules:
     importlib.reload(common_lib)
 from common_lib import create_msg_body, msg, trace
 
+TOOLNAME = "Create3Dcatenaryfromline"
+
 ###################################
 # debugging and notifications
 
@@ -206,40 +208,12 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
         msg_body = create_msg_body("Preparing output feature classes...", 0, 0)
         msg(msg_body)
 
-        if lc_use_in_memory:
-            arcpy.AddMessage("Using in memory for processing")
-
-            # junctions points needed for FFCER
-            outJunctionPointsIntoFFCER = in_memory + "/" + junction_intoFFCER
-
-        else:
-            # junctions points needed for makeSpans: FFCER generates 3D points with _Points in name
-            outJunctionPointsIntoFFCER = os.path.join(lc_scratch_ws, junction_intoFFCER)
-
-            if arcpy.Exists(outJunctionPointsIntoFFCER):
-                arcpy.Delete_management(outJunctionPointsIntoFFCER)
-
-            # delete additional CE output
-            if arcpy.Exists(outJunctionPointsIntoFFCER + CE_additionP):
-                arcpy.Delete_management(outJunctionPointsIntoFFCER + CE_additionP)
-
-            if arcpy.Exists(outJunctionPointsIntoFFCER + CE_additionMP):
-                arcpy.Delete_management(outJunctionPointsIntoFFCER + CE_additionMP)
-
-            if arcpy.Exists(outJunctionPointsIntoFFCER + CE_additionL):
-                arcpy.Delete_management(outJunctionPointsIntoFFCER + CE_additionL)
-
+        # create / check out features classes
         # tower placement points
         outTowerPlacementPoints = lc_output_features + "_" + tower_placement_points_name
 
-        towerPlacementPoints_dirname = os.path.dirname(outTowerPlacementPoints)
-        towerPlacementPoints_basename = os.path.basename(outTowerPlacementPoints)
-
         if arcpy.Exists(outTowerPlacementPoints):
             arcpy.Delete_management(outTowerPlacementPoints)
-
-        arcpy.CreateFeatureclass_management(towerPlacementPoints_dirname, towerPlacementPoints_basename, geometry_type, "", has_m, has_z,
-                                                spatial_reference)
 
         # tower models: multipatches generated from tower placement points
         outTowerModels = lc_output_features + "_" + out_tower_models_name
@@ -257,7 +231,6 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
 
         if arcpy.Exists(outSpansIntoScript):
             arcpy.Delete_management(outSpansIntoScript)
-
 
         # NOTE: these items are used to create attributes and values must correspond to
         # TowerConfiguration attributes. If this list changes you must update TowerConfiguration object class
@@ -296,22 +269,107 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
                                             beam_color_field:"TEXT",
                                             units_field:"TEXT",
                                             tower_material: "TEXT"
-                                        }
-        # add required fields for towerPlacementPoints
-        arcpy.AddMessage("Adding required fields to tower placement points...")
-
-        for k, v in tower_base_point_field_dict.items():
-            common_lib.delete_add_field(outTowerPlacementPoints, k, v)
+                                       }
 
         catenary = None
         fieldList = ["SHAPE@"]
         fieldAccess = utils.FieldAccess(fieldList)
 
+        num_features = int(arcpy.GetCount_management(lc_input_features).getOutput(0))
+
         lineCursor = arcpy.da.SearchCursor(lc_input_features, fieldList)
-        i = 0
+        i = 1
+
         for row in lineCursor:
-            # 1 line limit at the moment.
-            if i == 0:
+            if lc_use_in_memory:
+                arcpy.AddMessage("Using in memory for processing")
+
+                # junctions points needed for FFCER
+                outJunctionPointsIntoFFCER = in_memory + "/" + junction_intoFFCER
+
+            else:
+                # junctions points needed for makeSpans: FFCER generates 3D points with _Points in name
+                outJunctionPointsIntoFFCER = os.path.join(lc_scratch_ws, junction_intoFFCER)
+
+            if arcpy.Exists(outJunctionPointsIntoFFCER):
+                arcpy.Delete_management(outJunctionPointsIntoFFCER)
+
+            # delete additional CE output
+            if arcpy.Exists(outJunctionPointsIntoFFCER + CE_additionP):
+                arcpy.Delete_management(outJunctionPointsIntoFFCER + CE_additionP)
+
+            if arcpy.Exists(outJunctionPointsIntoFFCER + CE_additionMP):
+                arcpy.Delete_management(outJunctionPointsIntoFFCER + CE_additionMP)
+
+            if arcpy.Exists(outJunctionPointsIntoFFCER + CE_additionL):
+                arcpy.Delete_management(outJunctionPointsIntoFFCER + CE_additionL)
+
+                # create temporary per line feature classes
+                # temp tower placement points
+            if lc_use_in_memory:
+                arcpy.AddMessage("Using in memory for processing")
+
+                temp_outTowerPlacementPoints = in_memory + "/" + tower_placement_points_name + "_temp"
+
+            else:
+                temp_outTowerPlacementPoints = os.path.join(lc_scratch_ws, tower_placement_points_name + "_temp")
+
+            # first time delete just to be sure
+            if i == 1 and arcpy.Exists(temp_outTowerPlacementPoints):
+                arcpy.Delete_management(temp_outTowerModels)
+
+            if arcpy.Exists(temp_outTowerPlacementPoints):
+                arcpy.TruncateTable_management(temp_outTowerPlacementPoints)
+            else:
+                temp_outtowerPlacementPoints_dirname = os.path.dirname(temp_outTowerPlacementPoints)
+                temp_outtowerPlacementPoints_basename = os.path.basename(temp_outTowerPlacementPoints)
+
+                arcpy.CreateFeatureclass_management(temp_outtowerPlacementPoints_dirname,
+                                                    temp_outtowerPlacementPoints_basename,
+                                                    geometry_type, "", has_m, has_z,
+                                                    spatial_reference)
+                # add required fields for towerPlacementPoints
+                arcpy.AddMessage("Adding required fields to tower placement points...")
+
+                for k, v in tower_base_point_field_dict.items():
+                    common_lib.delete_add_field(temp_outTowerPlacementPoints, k, v)
+
+            # temp tower models: multipatches generated from tower placement points
+            if lc_use_in_memory:
+                arcpy.AddMessage("Using in memory for processing")
+
+                temp_outTowerModels = in_memory + "/" + out_tower_models_name + "_temp"
+            else:
+                temp_outTowerModels = os.path.join(lc_scratch_ws, out_tower_models_name + "_temp")
+
+            if arcpy.Exists(temp_outTowerModels):
+                arcpy.Delete_management(temp_outTowerModels)
+
+            if lc_use_in_memory:
+                arcpy.AddMessage("Using in memory for processing")
+
+                temp_outJunctionPointsFromFFCER = in_memory + "/" + out_tower_models_name + "_temp"
+
+            else:
+                temp_outJunctionPointsFromFFCER = os.path.join(lc_scratch_ws, junction_points_name + "_temp")
+
+            if arcpy.Exists(temp_outJunctionPointsFromFFCER):
+                arcpy.Delete_management(temp_outJunctionPointsFromFFCER)
+
+            # output temp spans
+            if lc_use_in_memory:
+                arcpy.AddMessage("Using in memory for processing")
+
+                temp_outSpansIntoScript = in_memory + "/" + spans_name + "_temp"
+
+            else:
+                temp_outSpansIntoScript = os.path.join(lc_scratch_ws, spans_name + "_temp")
+
+            if arcpy.Exists(temp_outSpansIntoScript):
+                arcpy.Delete_management(temp_outSpansIntoScript)
+
+            # multiple lines are now supported...
+            if i >= 0:
                 fieldAccess.setRow(row)
 
                 arcpyPolyline = fieldAccess.getValue("SHAPE@")
@@ -324,41 +382,67 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
                     towerPlacementLine = TowerPlacementLine(vgPolyline, towerConfiguration, lc_sag_to_span_ratio)
                     towerBasePoints = towerPlacementLine.towerBasePoints
                     # put the tower base points into the scene.
-                    InsertTowerBasePoints(towerBasePoints, towerConfiguration, outTowerPlacementPoints, list(tower_base_point_field_dict.keys()))
-                    pint("Inserted Tower base points")
+                    InsertTowerBasePoints(towerBasePoints, towerConfiguration, temp_outTowerPlacementPoints, list(tower_base_point_field_dict.keys()))
 
-                    arcpy.ddd.FeaturesFromCityEngineRules(outTowerPlacementPoints, exportPointsRPK,
+                    arcpy.ddd.FeaturesFromCityEngineRules(temp_outTowerPlacementPoints, exportPointsRPK,
                                                           outJunctionPointsIntoFFCER, "DROP_EXISTING_FIELDS",
                                                           "INCLUDE_REPORTS", "FEATURE_PER_LEAF_SHAPE")
 
                     # copy _Points fc to input gdb
-                    arcpy.CopyFeatures_management(outJunctionPointsIntoFFCER + CE_additionP, outJunctionPointsFromFFCER)
+                    arcpy.CopyFeatures_management(outJunctionPointsIntoFFCER + CE_additionP, temp_outJunctionPointsFromFFCER)
 
-                    pint("Made Junctions.")
-
-                    arcpy.ddd.FeaturesFromCityEngineRules(outTowerPlacementPoints, exportModelsRPK,
-                                                          outTowerModels, "INCLUDE_EXISTING_FIELDS",
+                    arcpy.ddd.FeaturesFromCityEngineRules(temp_outTowerPlacementPoints, exportModelsRPK,
+                                                          temp_outTowerModels, "INCLUDE_EXISTING_FIELDS",
                                                           "EXCLUDE_REPORTS", "FEATURE_PER_SHAPE")
-                    pint("Made towers.")
 
-                    pint("Making spans")
-
+                    pint("Making spans for feature: " + str(i) + " out of " + str(num_features) + ".")
 
                     catenary, guide_lines = create_3D_catenary.makeSpans(lc_scratch_ws=lc_scratch_ws,
-                                                        lc_inPoints = outJunctionPointsFromFFCER,
-                                                        lc_testLineWeight = lc_testLineWeight,
+                                                        lc_inPoints=temp_outJunctionPointsFromFFCER,
+                                                        lc_testLineWeight=lc_testLineWeight,
                                                         lc_sag_to_span_ratio=lc_sag_to_span_ratio,
                                                         lc_horizontal_tension=lc_horizontal_tension,
-                                                        lc_output_features = outSpansIntoScript,
-                                                        lc_debug = lc_debug,
-                                                        lc_use_in_memory = False)
-                    pint("Made Spans")
+                                                        lc_output_features=temp_outSpansIntoScript,
+                                                        lc_debug=lc_debug,
+                                                        lc_use_in_memory=False,
+                                                        lc_cleanup=False,
+                                                        lc_caller=TOOLNAME)
+
+                    # append features to output feature classes
+
+                    # catenary, outTowerModels, outJunctionPointsFromFFCER, outTowerPlacementPoints
+                    schemaType = "NO_TEST"
+                    if arcpy.Exists(outSpansIntoScript):
+                        arcpy.Append_management(catenary, outSpansIntoScript, schemaType)
+                    else:
+                        arcpy.Copy_management(catenary, outSpansIntoScript)
+
+                    pint("Made spans for feature: " + str(i) + " out of " + str(num_features) + ".")
+
+                    if arcpy.Exists(outTowerModels):
+                        arcpy.Append_management(temp_outTowerModels, outTowerModels, schemaType)
+                    else:
+                        arcpy.Copy_management(temp_outTowerModels, outTowerModels)
+
+                    pint("Made towers for feature: " + str(i) + " out of " + str(num_features) + ".")
+
+                    if arcpy.Exists(outJunctionPointsFromFFCER):
+                        arcpy.Append_management(temp_outJunctionPointsFromFFCER, outJunctionPointsFromFFCER, schemaType)
+                    else:
+                        arcpy.Copy_management(temp_outJunctionPointsFromFFCER, outJunctionPointsFromFFCER)
+
+                    pint("Made junctions for feature: " + str(i) + " out of " + str(num_features) + ".")
+
+                    if arcpy.Exists(outTowerPlacementPoints):
+                        arcpy.Append_management(temp_outTowerPlacementPoints, outTowerPlacementPoints, schemaType)
+                    else:
+                        arcpy.Copy_management(temp_outTowerPlacementPoints, outTowerPlacementPoints)
                 else:
                     raise MultipartInputNotSupported
 
-        # End single-polyline cursor.
+            i += 1
 
-        return catenary, outTowerModels, outJunctionPointsFromFFCER, outTowerPlacementPoints
+        return outSpansIntoScript, outTowerModels, outJunctionPointsFromFFCER, outTowerPlacementPoints
 
     except MultipartInputNotSupported:
         print("Multipart features are not supported. Exiting...")

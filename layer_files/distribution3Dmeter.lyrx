@@ -3,19 +3,20 @@
   "version" : "2.2.0",
   "build" : 12813,
   "layers" : [
-    "CIMPATH=internal_map/test_line_feet1_create3dtran6_spans_3d.xml"
+    "CIMPATH=internal_map/test_line_feet_dist_1_w_spans_3d.xml"
   ],
   "layerDefinitions" : [
     {
       "type" : "CIMFeatureLayer",
-      "name" : "test_line_feet1_Create3DTran6_Spans_3D",
-      "uRI" : "CIMPATH=internal_map/test_line_feet1_create3dtran6_spans_3d.xml",
+      "name" : "test_line_feet_dist_1_w_Spans_3D",
+      "uRI" : "CIMPATH=internal_map/test_line_feet_dist_1_w_spans_3d.xml",
       "sourceModifiedTime" : {
         "type" : "TimeInstant",
         "start" : 978307200000
       },
+      "metadataURI" : "CIMPATH=Metadata/b485b3c27598251854033ea6ef999541.xml",
       "useSourceMetadata" : true,
-      "description" : "test_line_feet1_Create3DTran6_Spans_3D",
+      "description" : "test_line_feet_dist_1_w_Spans_3D",
       "layerElevation" : {
         "type" : "CIMLayerElevationSurface"
       },
@@ -213,7 +214,7 @@
           "type" : "CIMStandardDataConnection",
           "workspaceConnectionString" : "DATABASE=..\\Transmission_Lines.gdb",
           "workspaceFactory" : "FileGDB",
-          "dataset" : "test_line_feet1_Create3DTran6_Spans_3D",
+          "dataset" : "test_line_feet_dist_1_w_Spans_3D",
           "datasetType" : "esriDTFeatureClass"
         },
         "studyAreaSpatialRel" : "esriSpatialRelUndefined",
@@ -222,7 +223,7 @@
       "featureTemplates" : [
         {
           "type" : "CIMFeatureTemplate",
-          "name" : "test_line_feet1_Create3DTran6_Spans_3D",
+          "name" : "test_line_feet_dist_1_w_Spans_3D",
           "tags" : "Line",
           "toolProgID" : "af2dbf8f-280e-44db-8860-e399d0b30cf1",
           "toolFilter" : [
@@ -461,7 +462,7 @@
                 "joinStyle" : "Round",
                 "lineStyle3D" : "Tube",
                 "miterLimit" : 10,
-                "width" : 0.050000000000000003,
+                "width" : 0.02,
                 "color" : {
                   "type" : "CIMRGBColor",
                   "values" : [
@@ -480,6 +481,13 @@
       "scaleSymbols" : true,
       "snappable" : true,
       "useRealWorldSymbolSizes" : true
+    }
+  ],
+  "binaryReferences" : [
+    {
+      "type" : "CIMBinaryReference",
+      "uRI" : "CIMPATH=Metadata/b485b3c27598251854033ea6ef999541.xml",
+      "data" : "<?xml version=\"1.0\"?>\r\n<metadata xml:lang=\"en\"><Esri><CreaDate>20181218</CreaDate><CreaTime>09464400</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce></Esri></metadata>\r\n"
     }
   ]
 }
