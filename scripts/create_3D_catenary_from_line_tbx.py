@@ -40,7 +40,7 @@ else:
     enableLogging = False
     DeleteIntermediateData = True
     verbose = 0
-    in_memory_switch = True
+    in_memory_switch = False
 
 
 def pint(text):
@@ -68,6 +68,10 @@ ERROR = "error"
 
 # error classes
 class MoreThan1Selected(Exception):
+    pass
+
+
+class NoneSelected(Exception):
     pass
 
 
@@ -176,18 +180,18 @@ def main():
             # debug
             input_features = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines\Testing.gdb\test_line_feet1'
 #            input_features = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\demo241018\Transmisionline_demo1\Testing.gdb\test_line_meters_transpower'
-            voltage = "11kV"
+            voltage = "400kV"
             do_sag_to_span = True
-            conductor_name = "Sample Conductor 11"
-            line_type = "Distribution"
+            conductor_name = "Sample Conductor 400"
+            line_type = "Transmission"
             horizontal_tension = 4500
             output_features = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines\Testing.gdb\test_line_feet_3D'
-            structure_type = "Pole"
+            structure_type = "Lattice"
             circuits = 2
             alignment = "Horizontal"
             insulator_hang_type = "Single"
             shield_wires = 0
-            tower_material = "Wood"
+            tower_material = "Steel"
 
             home_directory = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines'
             layer_directory = home_directory + "\\layer_files"
@@ -226,8 +230,8 @@ def main():
                     # check number of selected features
                     num_features = int(arcpy.GetCount_management(input_source_copy).getOutput(0))
 
-                    if num_features != 1:
-                        raise MoreThan1Selected
+                    if num_features == 0:
+                        raise NoneSelected
                     else:
 
                         # check if conductor table exists...
@@ -479,6 +483,10 @@ def main():
     except MoreThan1Selected:
         print("More than 1 line selected. Please select 1 guide line only. Exiting...")
         arcpy.AddError("More than 1 line selected. Please select 1 guide line only. Exiting...")
+
+    except NoneSelected:
+        print("No features found. Exiting...")
+        arcpy.AddError("No features found. Exiting...")
 
     except NoGuideLinesOutput:
         print("Can't create GuideLines output. Exiting...")

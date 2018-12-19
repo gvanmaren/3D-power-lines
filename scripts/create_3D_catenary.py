@@ -411,7 +411,7 @@ def doInsertSpanAndGuideLine(lc_includedTransmissionLinesFC, lc_includedTransmis
 ############################################################################################### Chris ends...................
 
 
-def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_ratio, lc_horizontal_tension, lc_output_features, lc_debug, lc_use_in_memory):
+def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_ratio, lc_horizontal_tension, lc_output_features, lc_debug, lc_use_in_memory, lc_cleanup, lc_caller):
     try:
         geometry_type = "POLYLINE"
         has_m = "DISABLED"
@@ -440,8 +440,8 @@ def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_rati
 
         # create empty feature class with required fields
 
-        msg_body = create_msg_body("Preparing output feature classes...", 0, 0)
-        msg(msg_body)
+#        msg_body = create_msg_body("Preparing output feature classes...", 0, 0)
+#        msg(msg_body)
 
         if lc_use_in_memory:
             arcpy.AddMessage("Using in memory for processing")
@@ -469,10 +469,10 @@ def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_rati
         common_lib.delete_add_field(includedTransmissionLinesFC, line_lenght, "DOUBLE")
         common_lib.delete_add_field(includedTransmissionLinesFC, weight_per_unit_length, "DOUBLE")
 
-        if lc_sag_to_span_ratio is None and lc_horizontal_tension is None:
-            create_guidelines = True
-        else:
+        if lc_caller == "Create3Dcatenaryfromline":
             create_guidelines = False
+        else:
+            create_guidelines = True
 
         if create_guidelines:
             if lc_use_in_memory:
@@ -559,8 +559,8 @@ def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_rati
                 spanListPerThisLine.append(span)
             dictionaryOfSpanListsPerLine[lineNumber] = spanListPerThisLine
 
-        msg_body = create_msg_body("Writing all span lines to " + includedTransmissionLinesFC_basename + ".", 0, 0)
-        msg(msg_body)
+#        msg_body = create_msg_body("Writing all span lines to " + includedTransmissionLinesFC_basename + ".", 0, 0)
+#        msg(msg_body)
 
         for index in range(0,len(lineNumberList)):
             lineNumber = lineNumberList[index]
@@ -573,21 +573,24 @@ def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_rati
                 "Created helper Guide Lines feature class " + common_lib.get_name_from_feature_class(includedTransmissionLineGuides) + ".", 0, 0)
             msg(msg_body)
 
-        if lc_use_in_memory:
-            arcpy.Delete_management("in_memory")
+        # TODO check when necessary. When called from create_3D_catenary_from_line, this should not be called.
 
-        if lc_debug == 0:
-            fcs = common_lib.listFcsInGDB(lc_scratch_ws)
+        if lc_cleanup:
+            if lc_use_in_memory:
+                arcpy.Delete_management("in_memory")
 
-            msg_prefix = "Deleting intermediate data..."
+            if lc_debug == 0:
+                fcs = common_lib.listFcsInGDB(lc_scratch_ws)
 
-            msg_body = common_lib.create_msg_body(msg_prefix, 0, 0)
-            common_lib.msg(msg_body)
+                msg_prefix = "Deleting intermediate data..."
 
-            for fc in fcs:
-                arcpy.Delete_management(fc)
+                msg_body = common_lib.create_msg_body(msg_prefix, 0, 0)
+                common_lib.msg(msg_body)
 
-        arcpy.ClearWorkspaceCache_management()
+                for fc in fcs:
+                    arcpy.Delete_management(fc)
+
+            arcpy.ClearWorkspaceCache_management()
 
         return includedTransmissionLinesFC, includedTransmissionLineGuides
 
