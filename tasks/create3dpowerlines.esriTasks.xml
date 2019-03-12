@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<metadata xml:lang="en">
+  <Esri>
+    <CreaDate>20190220</CreaDate>
+    <CreaTime>10282800</CreaTime>
+    <ArcGISFormat>1.0</ArcGISFormat>
+    <SyncOnce>TRUE</SyncOnce>
+  </Esri>
+  <dataIdInfo>
+    <idCitation>
+      <resTitle>Create 3D Power Lines</resTitle>
+    </idCitation>
+    <idPurp>A collection of tools that simplifies and automates the process of creating 3D visualizations of transmission and distribution lines.</idPurp>
+    <idAbs>&lt;P&gt;The 3D Tools for Power lines solution is a collection of ArcGIS Pro tools that simplifies and automates the process of creating 3D visualizations of transmission and distribution lines. The results can be published and visualized in a 3D scene which can be easily shared with stakeholders or the public.&lt;/P&gt;&lt;P /&gt;&lt;P&gt;&lt;B&gt;Benefits&lt;/B&gt;&lt;/P&gt;&lt;P&gt;The following are some benefits of using 3D Tools for Power lines:&lt;/P&gt;&lt;P /&gt;&lt;P&gt;- Visualize existing power lines in 3D and add them to your 3D basemap to serve as a foundation for creating 3D applications and workflows.&lt;/P&gt;&lt;P&gt;- Visualize proposed power lines in 3D and assess the visual impact on the surrounding landscape.&lt;/P&gt;&lt;P&gt;- Supports both transmission and distribution lines&lt;/P&gt;&lt;P&gt;- Works with existing GIS data as input.&lt;/P&gt;&lt;P&gt;- Creates realistic 3D representations of conductor and tower structures&lt;/P&gt;&lt;P&gt;- Supports a wide variety of conductor and tower configurations&lt;/P&gt;</idAbs>
+    <searchKeys>
+      <keyword>3D</keyword>
+      <keyword>utilities</keyword>
+      <keyword>transmission</keyword>
+      <keyword>distribution</keyword>
+    </searchKeys>
+  </dataIdInfo>
+</metadata>

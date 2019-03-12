@@ -127,11 +127,11 @@ def main():
 
         else:
             # debug
-            input_source = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2\Transmission_Lines\Testing.gdb\Cat_test_LineGuides_3D'
+            input_source = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines\Testing.gdb\Cat_test_LineGuides_3D'
             angle = 45
-            output_features = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2\Transmission_Lines\Testing.gdb\sway_surfaces'
+            output_features = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines\Testing.gdb\sway_surfaces'
 
-            home_directory = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2\Transmission_Lines'
+            home_directory = r'D:\Gert\Work\Esri\Solutions\Utilities\Electric\work2.2.3\Transmission_Lines'
             layer_directory = home_directory + "\\layer_files"
             rule_directory = home_directory + "\\rule_packages"
             log_directory = home_directory + "\\Logs"
@@ -205,9 +205,6 @@ def main():
                             arcpy.SetParameter(3, output_layer3)
                         else:
                             arcpy.SetParameter(4, output_layer3)
-
-                            msg_body = create_msg_body("Adding sway surface layer: " + common_lib.get_name_from_feature_class(output_features) + " TO toc.", 0, 0)
-                            msg(msg_body)
                     else:
                         raise NoSwaySurfaceOutput
                 else:

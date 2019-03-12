@@ -55,11 +55,17 @@ def p(label, text):
 
 # Note: Tower Placement Line's init handles lots of setup of objects contained within.
 class TowerPlacementLine(object):
-    def __init__(self, polyline, towerConfiguration, sagToSpanRatio):
+    def __init__(self, polyline, towerConfiguration, sagToSpanRatio, horizontalTension, lineWeight, endPoints):
+        # Gert, I think TowerConfiguration was made to hold all of the GP inputs and those go into
+        # the TowerBasePoints feature layer, along with a few others, to drive the RPK.
+        # I considered adding sagToSpanRatio, horizontalTension, lineWeight to that layer,
+        # for reference when inspecting the tower base points, but that would require new fields
+        # (and I don't know your code that well),
+        # so I just sent them into this function as args, instead of adding them into
+        # TowerConfiguration object, which is a good place to store them, with all of the other GP inputs.
         self.polyline = polyline
         self.nodes = self.polyline.nodes
         self.towerBasePoints = []
-        self.longestSpanLength = 0
 
         towerCount = len(polyline.nodes)
         for nodeIndex in range(0, towerCount):
@@ -72,13 +78,17 @@ class TowerPlacementLine(object):
 
             self.towerBasePoints.append(towerBasePoint)
 
-        # Find default tower directions, and span lengths.
-        # Note: there is one less span than there is towers.
+        # Find tower directions, and max sag allowed per tower based on adjacent spans.
+        # Note: there is one less span than there are towers.
         cardinalDirection = None
+        greaterOfAdjacentSpanMaximumSags = None
+
+        endPointGertArgument = endPoints
 
         for nodeIndex in range(0, towerCount):
             towerBasePoint = self.towerBasePoints[nodeIndex]
-
+            towerBasePoint.structure_type = towerConfiguration.structure_type
+            towerBasePoint.endPointGertArgument = endPointGertArgument
             # Note: Using 3D length here with sagRatio, so that steep lines get similar sag to flat lines.
 
             if nodeIndex == 0:
@@ -90,16 +100,40 @@ class TowerPlacementLine(object):
 
                 spanDirectionVector = vg.getVectorFromTwoPoints(fromPoint, toPoint)
                 cardinalDirection = vg.getCardinalDirectionFromVector2D(spanDirectionVector)
-                spanVector3D = vg.getVectorFromTwoPoints(fromPoint, toPoint)
-                spanLength3D = vg.magnitude(spanVector3D)
-                if spanLength3D > self.longestSpanLength:
-                    self.longestSpanLength = spanLength3D
+                #spanVector3D = vg.getVectorFromTwoPoints(fromPoint, toPoint)
+                #spanLength3D = vg.magnitude(spanVector3D)
+
+                # Find max sag.
+                # to get max_sag, we need AttachmentPoint objects for the makeSpan() function.
+                thisFakeAttachmentPoint = create_3D_catenary.AttachmentPoint(thisTowerBasePoint.point,0,0)
+                nextFakeAttachmentPoint = create_3D_catenary.AttachmentPoint(nextTowerBasePoint.point,0,0)
+
+                nextSpan = create_3D_catenary.makeSpan(thisFakeAttachmentPoint, nextFakeAttachmentPoint, None, lineWeight, sagToSpanRatio, None, horizontalTension)
+                greaterOfAdjacentSpanMaximumSags = nextSpan.sagDistance
+
+                # Find endpoint type.
+                if endPointGertArgument == "Both" or endPointGertArgument == "Start":
+                    towerBasePoint.structure_type = "Substation"
+
             elif nodeIndex == towerCount - 1:
                 # The last node takes its direction from previous node.
                 thisTowerBasePoint = self.towerBasePoints[nodeIndex]
                 previousTowerBasePoint = self.towerBasePoints[nodeIndex - 1]
                 spanDirectionVector = vg.getVectorFromTwoPoints(previousTowerBasePoint.point, thisTowerBasePoint.point)
                 cardinalDirection = vg.getCardinalDirectionFromVector2D(spanDirectionVector)
+
+                # find max sag.
+                thisFakeAttachmentPoint = create_3D_catenary.AttachmentPoint(thisTowerBasePoint.point,0,0)
+                previousFakeAttachmentPoint = create_3D_catenary.AttachmentPoint(previousTowerBasePoint.point,0,0)
+
+                previousSpan = create_3D_catenary.makeSpan(previousFakeAttachmentPoint, thisFakeAttachmentPoint, None, lineWeight, sagToSpanRatio, None, horizontalTension)
+                greaterOfAdjacentSpanMaximumSags = previousSpan.sagDistance
+
+
+                # Find endpoint type.
+                if endPointGertArgument == "Both" or endPointGertArgument == "End":
+                    towerBasePoint.structure_type = "Substation"
+
             else:
                 # This node is in between first and last, and must handle direction changes.
                 previousTowerBasePoint = self.towerBasePoints[nodeIndex - 1]
@@ -111,34 +145,43 @@ class TowerPlacementLine(object):
                 spanDirectionBisector = vg.getBisectingVector2D(spanDirectionPrevious, spanDirectionThis)
                 cardinalDirection = vg.getCardinalDirectionFromVector2D(spanDirectionBisector)
 
-                fromPoint = thisTowerBasePoint.point
-                toPoint = nextTowerBasePoint.point
+                # find max sag.
+                previousFakeAttachmentPoint = create_3D_catenary.AttachmentPoint(previousTowerBasePoint.point,0,0)
+                thisFakeAttachmentPoint = create_3D_catenary.AttachmentPoint(thisTowerBasePoint.point,0,0)
+                nextFakeAttachmentPoint = create_3D_catenary.AttachmentPoint(nextTowerBasePoint.point,0,0)
 
-                spanVector3D = vg.getVectorFromTwoPoints(fromPoint, toPoint)
-                spanLength3D = vg.magnitude(spanVector3D)
-                if spanLength3D > self.longestSpanLength:
-                    self.longestSpanLength = spanLength3D
+                previousSpan = create_3D_catenary.makeSpan(previousFakeAttachmentPoint, thisFakeAttachmentPoint, None, lineWeight, sagToSpanRatio, None, horizontalTension)
+                nextSpan = create_3D_catenary.makeSpan(thisFakeAttachmentPoint, nextFakeAttachmentPoint, None, lineWeight, sagToSpanRatio, None, horizontalTension)
+
+                greaterOfAdjacentSpanMaximumSags = greaterOf(previousSpan.sagDistance, nextSpan.sagDistance)
+
+                # XX how could it have worked without the line below?
+                towerBasePoint.structure_type = towerConfiguration.structure_type
+
+            # Fields set for each tower.
             towerBasePoint.cardinalDirection = cardinalDirection
-
-            if sagToSpanRatio is None:
-                sagToSpanRatio = 0.035
-            towerConfiguration.maximum_sag_allowance = self.longestSpanLength * sagToSpanRatio
+            towerBasePoint.maximum_sag_allowance = greaterOfAdjacentSpanMaximumSags
+            # start and end structures are also set for each base point. That is done in above code.
         # End for node loop.
     pass
 
+def greaterOf(value1, value2):
+    if value1 > value2: return value1
+    else: return value2
 
 # This is used so that the signature of makeTowersAndJunctions won't have to change if schema changes.
 class TowerConfiguration(object):
     def __init__(self):
         self.line_type = None
-        self.structure_type = None
+        self.structure_type = None #Gert, same message as below, to deal with Substation structure type.
         self.voltage = None
         self.circuits = None
         self.alignment = None
         self.conductor_vertical_clearance = None
         self.conductor_horizontal_clearance = None
         self.minimum_ground_clearance = None
-        self.maximum_sag_allowance = None
+        self.maximum_sag_allowance = None # Gert, CW moved this to TowerBasePoint object, but left it in this object
+        # because I'm not wanting to mess with the feature class creation code.
         self.shield_wires = None
         self.insulator_hang_type = None
         self.beam_color = None # not TODO CW: nothing: leave for now
@@ -147,10 +190,12 @@ class TowerConfiguration(object):
 
 class TowerBasePoint(object):
     def __init__(self, point):
+        # These are fields that can change per tower.
         self.point = point
         self.cardinalDirection = None
         self.towerNumber = None
-
+        self.maximum_sag_allowance = None #Gert, I added this.
+        self.structure_type = None #Gert, I added this.
 
 def InsertTowerBasePoints(towerBasePoints, tower_configuration, lc_tower_placement_points, lc_fields):
     for index in range(0, len(towerBasePoints)):
@@ -161,11 +206,14 @@ def InsertTowerBasePoints(towerBasePoints, tower_configuration, lc_tower_placeme
         newRow.set('SHAPE@', arcpyPoint)
         newRow.set('Cardinal_Direction', towerBasePoint.cardinalDirection)
         newRow.set('TowerNumber', towerBasePoint.towerNumber)
-
         towerConfigIndex = 2
         for k, v in vars(tower_configuration).items():
             newRow.set(lc_fields[towerConfigIndex], v)
             towerConfigIndex += 1
+        # Gert I did this after that loop, because I needed to update the value of these keys maximum_sag_allowance, and structure_type
+        # and those values are being set on tower base points now (not tower config), but lc_fields has those keys already.
+        newRow.set('maximum_sag_allowance', towerBasePoint.maximum_sag_allowance)
+        newRow.set('structure_type', towerBasePoint.structure_type)
 
         ####################################
         # Insert
@@ -176,7 +224,7 @@ def InsertTowerBasePoints(towerBasePoints, tower_configuration, lc_tower_placeme
 
 
 def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_testLineWeight, lc_sag_to_span_ratio, lc_horizontal_tension,
-                                    lc_tower_configuration, lc_fields_towerconfig, lc_output_features,
+                                    lc_tower_configuration, lc_ends, lc_output_features,
                                     lc_debug, lc_use_in_memory):
 
     try:
@@ -186,8 +234,6 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
         geometry_type = "POINT"
         has_m = "DISABLED"
         has_z = "ENABLED"
-
-
 
         in_memory = "in_memory"
         tower_placement_points_name = "TowerLocations"
@@ -316,7 +362,7 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
 
             # first time delete just to be sure
             if i == 1 and arcpy.Exists(temp_outTowerPlacementPoints):
-                arcpy.Delete_management(temp_outTowerModels)
+                arcpy.Delete_management(temp_outTowerPlacementPoints)
 
             if arcpy.Exists(temp_outTowerPlacementPoints):
                 arcpy.TruncateTable_management(temp_outTowerPlacementPoints)
@@ -331,8 +377,24 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
                 # add required fields for towerPlacementPoints
                 arcpy.AddMessage("Adding required fields to tower placement points...")
 
+                start_time = time.clock()
+
+#                for k, v in tower_base_point_field_dict.items():
+#                    common_lib.delete_add_field(temp_outTowerPlacementPoints, k, v)
+
+                listoffields = []
                 for k, v in tower_base_point_field_dict.items():
-                    common_lib.delete_add_field(temp_outTowerPlacementPoints, k, v)
+                    field = []
+                    field.append(k)
+                    field.append(v)
+                    listoffields.append(field)
+
+                arcpy.management.AddFields(temp_outTowerPlacementPoints, listoffields)
+
+                end_time = time.clock()
+                msg_body = create_msg_body("Time to create fields...", start_time,
+                                           end_time)
+                msg(msg_body)
 
             # temp tower models: multipatches generated from tower placement points
             if lc_use_in_memory:
@@ -379,14 +441,17 @@ def makeTowersAndJunctions(lc_scratch_ws, lc_rule_dir, lc_input_features, lc_tes
                 if vgPolyline:
                     # get tower point objects here. Initializing TowerPlacementLine builds the TowerBasePoints.
                     # from towerConfiguration
-                    towerPlacementLine = TowerPlacementLine(vgPolyline, towerConfiguration, lc_sag_to_span_ratio)
+                    pint("Preparing tower base points for feature: " + str(i) + " out of " + str(num_features) + ".")
+
+                    towerPlacementLine = TowerPlacementLine(vgPolyline, towerConfiguration, lc_sag_to_span_ratio, lc_horizontal_tension, lc_testLineWeight, lc_ends)
                     towerBasePoints = towerPlacementLine.towerBasePoints
                     # put the tower base points into the scene.
                     InsertTowerBasePoints(towerBasePoints, towerConfiguration, temp_outTowerPlacementPoints, list(tower_base_point_field_dict.keys()))
-
                     arcpy.ddd.FeaturesFromCityEngineRules(temp_outTowerPlacementPoints, exportPointsRPK,
                                                           outJunctionPointsIntoFFCER, "DROP_EXISTING_FIELDS",
                                                           "INCLUDE_REPORTS", "FEATURE_PER_LEAF_SHAPE")
+
+                    # TODO built in check when FFCER fails XX Gert
 
                     # copy _Points fc to input gdb
                     arcpy.CopyFeatures_management(outJunctionPointsIntoFFCER + CE_additionP, temp_outJunctionPointsFromFFCER)

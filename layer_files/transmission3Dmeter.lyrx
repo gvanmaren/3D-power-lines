@@ -1,22 +1,20 @@
 {
   "type" : "CIMLayerDocument",
-  "version" : "2.2.0",
-  "build" : 12813,
+  "version" : "2.3.0",
+  "build" : 15769,
   "layers" : [
-    "CIMPATH=internal_map/test3_spans_3d.xml"
+    "CIMPATH=scene/transmission_points_nz_3d_spans.xml"
   ],
   "layerDefinitions" : [
     {
       "type" : "CIMFeatureLayer",
-      "name" : "test3_Spans_3D",
-      "uRI" : "CIMPATH=internal_map/test3_spans_3d.xml",
+      "name" : "transmission_points_nz_3D_Spans",
+      "uRI" : "CIMPATH=scene/transmission_points_nz_3d_spans.xml",
       "sourceModifiedTime" : {
-        "type" : "TimeInstant",
-        "start" : 978307200000
+        "type" : "TimeInstant"
       },
-      "metadataURI" : "CIMPATH=Metadata/371a0fc98938494b02970021ade07f98.xml",
       "useSourceMetadata" : true,
-      "description" : "test3_Spans_3D",
+      "description" : "transmission_points_nz_3D_Spans",
       "layerElevation" : {
         "type" : "CIMLayerElevationSurface"
       },
@@ -52,7 +50,7 @@
       "featureElevationExpression" : "Shape.Z",
       "featureTable" : {
         "type" : "CIMFeatureTable",
-        "displayField" : "Shape_Length",
+        "displayField" : "FromTower",
         "editable" : true,
         "fieldDescriptions" : [
           {
@@ -73,20 +71,6 @@
             "type" : "CIMFieldDescription",
             "alias" : "Shape",
             "fieldName" : "Shape",
-            "numberFormat" : {
-              "type" : "CIMNumericFormat",
-              "alignmentOption" : "esriAlignRight",
-              "alignmentWidth" : 0,
-              "roundingOption" : "esriRoundNumberOfDecimals",
-              "roundingValue" : 6
-            },
-            "visible" : true,
-            "searchMode" : "Exact"
-          },
-          {
-            "type" : "CIMFieldDescription",
-            "alias" : "Shape_Length",
-            "fieldName" : "Shape_Length",
             "numberFormat" : {
               "type" : "CIMNumericFormat",
               "alignmentOption" : "esriAlignRight",
@@ -169,20 +153,6 @@
           },
           {
             "type" : "CIMFieldDescription",
-            "alias" : "SagToSpanRatio",
-            "fieldName" : "SagToSpanRatio",
-            "numberFormat" : {
-              "type" : "CIMNumericFormat",
-              "alignmentOption" : "esriAlignRight",
-              "alignmentWidth" : 0,
-              "roundingOption" : "esriRoundNumberOfDecimals",
-              "roundingValue" : 6
-            },
-            "visible" : true,
-            "searchMode" : "Exact"
-          },
-          {
-            "type" : "CIMFieldDescription",
             "alias" : "HorizontalTension",
             "fieldName" : "HorizontalTension",
             "numberFormat" : {
@@ -222,13 +192,27 @@
             },
             "visible" : true,
             "searchMode" : "Exact"
+          },
+          {
+            "type" : "CIMFieldDescription",
+            "alias" : "Shape_Length",
+            "fieldName" : "Shape_Length",
+            "numberFormat" : {
+              "type" : "CIMNumericFormat",
+              "alignmentOption" : "esriAlignRight",
+              "alignmentWidth" : 0,
+              "roundingOption" : "esriRoundNumberOfDecimals",
+              "roundingValue" : 6
+            },
+            "visible" : true,
+            "searchMode" : "Exact"
           }
         ],
         "dataConnection" : {
           "type" : "CIMStandardDataConnection",
-          "workspaceConnectionString" : "DATABASE=..\\Testing.gdb",
+          "workspaceConnectionString" : "DATABASE=..\\3DToolsForPowerLines.gdb",
           "workspaceFactory" : "FileGDB",
-          "dataset" : "test3_Spans_3D",
+          "dataset" : "transmission_points_nz_3D_Spans",
           "datasetType" : "esriDTFeatureClass"
         },
         "studyAreaSpatialRel" : "esriSpatialRelUndefined",
@@ -237,7 +221,7 @@
       "featureTemplates" : [
         {
           "type" : "CIMFeatureTemplate",
-          "name" : "test3_Spans_3D",
+          "name" : "shield wire",
           "tags" : "Line",
           "toolProgID" : "af2dbf8f-280e-44db-8860-e399d0b30cf1",
           "toolFilter" : [
@@ -246,7 +230,14 @@
             "28c04532-3daf-4d3d-b7be-a589c9c9a03e",
             "6f0ed2cc-c099-4895-bd7e-beec2f78adbf",
             "e22f7d98-007d-427c-8282-13704f7c84c3"
-          ]
+          ],
+          "defaultValues" : {
+            "type" : "PropertySet",
+            "propertySetItems" : [
+              "linenumber",
+              -1
+            ]
+          }
         }
       ],
       "htmlPopupEnabled" : true,
@@ -462,9 +453,23 @@
         }
       ],
       "renderer" : {
-        "type" : "CIMSimpleRenderer",
-        "patch" : "Default",
-        "symbol" : {
+        "type" : "CIMUniqueValueRenderer",
+        "colorRamp" : {
+          "type" : "CIMRandomHSVColorRamp",
+          "colorSpace" : {
+            "type" : "CIMICCColorSpace",
+            "url" : "Default RGB"
+          },
+          "maxH" : 360,
+          "minS" : 15,
+          "maxS" : 30,
+          "minV" : 99,
+          "maxV" : 100,
+          "minAlpha" : 100,
+          "maxAlpha" : 100
+        },
+        "defaultLabel" : "conductor",
+        "defaultSymbol" : {
           "type" : "CIMSymbolReference",
           "symbol" : {
             "type" : "CIMLineSymbol",
@@ -476,13 +481,13 @@
                 "joinStyle" : "Round",
                 "lineStyle3D" : "Tube",
                 "miterLimit" : 10,
-                "width" : 0.20000000000000001,
+                "width" : 0.10000000000000001,
                 "color" : {
                   "type" : "CIMRGBColor",
                   "values" : [
-                    156,
-                    156,
-                    156,
+                    178,
+                    178,
+                    178,
                     100
                   ]
                 }
@@ -490,18 +495,66 @@
             ],
             "useRealWorldSymbolSizes" : true
           }
-        }
+        },
+        "defaultSymbolPatch" : "Default",
+        "fields" : [
+          "LineNumber"
+        ],
+        "groups" : [
+          {
+            "type" : "CIMUniqueValueGroup",
+            "classes" : [
+              {
+                "type" : "CIMUniqueValueClass",
+                "label" : "shield wire",
+                "patch" : "Default",
+                "symbol" : {
+                  "type" : "CIMSymbolReference",
+                  "symbol" : {
+                    "type" : "CIMLineSymbol",
+                    "symbolLayers" : [
+                      {
+                        "type" : "CIMSolidStroke",
+                        "enable" : true,
+                        "capStyle" : "Round",
+                        "joinStyle" : "Round",
+                        "lineStyle3D" : "Tube",
+                        "miterLimit" : 10,
+                        "width" : 0.050000000000000003,
+                        "color" : {
+                          "type" : "CIMRGBColor",
+                          "values" : [
+                            178,
+                            178,
+                            178,
+                            100
+                          ]
+                        }
+                      }
+                    ],
+                    "useRealWorldSymbolSizes" : true
+                  }
+                },
+                "values" : [
+                  {
+                    "type" : "CIMUniqueValue",
+                    "fieldValues" : [
+                      "-1"
+                    ]
+                  }
+                ],
+                "visible" : true
+              }
+            ],
+            "heading" : "LineType"
+          }
+        ],
+        "useDefaultSymbol" : true,
+        "polygonSymbolColorTarget" : "Fill"
       },
       "scaleSymbols" : true,
       "snappable" : true,
       "useRealWorldSymbolSizes" : true
-    }
-  ],
-  "binaryReferences" : [
-    {
-      "type" : "CIMBinaryReference",
-      "uRI" : "CIMPATH=Metadata/371a0fc98938494b02970021ade07f98.xml",
-      "data" : "<?xml version=\"1.0\"?>\r\n<metadata xml:lang=\"en\"><Esri><CreaDate>20180815</CreaDate><CreaTime>18552100</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce></Esri></metadata>\r\n"
     }
   ]
 }

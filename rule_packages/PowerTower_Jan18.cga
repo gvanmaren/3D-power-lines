@@ -1,0 +1,1801 @@
+/**
+ * File:    TransmissionTower.cga
+ * Created: 18 Apr 2018 19:40:45 GMT
+ * Author:  chri7180
+ */
+
+version "2018.1"
+
+
+############################################################
+############################################################
+# Hidden attributes coming from Tower_Base point features: 
+
+# One-based tower numbering.
+@Hidden 
+attr TowerNumber = 0
+
+# Cardinal direction, clockwise. 
+# (N = 0, E = 90, S = 180, W = 270)
+@Hidden
+attr Cardinal_Direction = 0 
+
+
+############################################################
+############################################################
+
+@Group("Display Mode", 10)
+
+@Enum("Detailed Model", "Mass Model") 
+attr Mode = "Detailed Model"
+# "Stick Figure" mode is still in the rule. Just add to above @Enum. 
+
+
+############################################################
+############################################################
+
+@Group("FROM GP TOOL Tower Setup", 12) 
+
+
+@Enum("11kV","66kV","110kV","115kV","220kV","230kV","380kV","400kV")
+attr Voltage = "220kV"
+
+@Order(30)
+@Enum("Transmission", "Distribution")
+attr Line_Type = "Transmission"
+
+@Order(40)
+@Enum("Lattice", "Pole", "Substation")
+attr Structure_Type = "Lattice"
+
+@Order(60)
+@Enum(1,2)
+attr Circuits = 2
+
+@Order(70)
+@Enum("Horizontal", "Vertical", "Offset")
+attr Alignment = "Horizontal"
+
+@Order(80)
+@Enum(0,1,2)
+attr Shield_Wires = 2 	# ASK: should we derive this? 
+						# Or offer good choices in GP validation code.
+
+@Order(90)
+@Enum("Single","Double")
+attr Insulator_Hang_Type = "Double"
+
+@Order(100)
+@Enum("Feet", "Meters")
+attr Units = "Feet"
+
+############################################################
+############################################################
+###### COPY OF TOWER LU TABLE
+
+
+
+getMinHSeparation(voltage) =
+case voltage == "11kV": 3
+case voltage == "66kV": 16
+case voltage == "110kV": 18
+case voltage == "115kV": 19
+case voltage == "220kV": 21
+case voltage == "230kV": 22
+case voltage == "380kV": 24
+case voltage == "400kV": 40
+else: 40
+
+getMinVSeparation(voltage) =
+case voltage == "11kV": 3
+case voltage == "66kV": 16
+case voltage == "110kV": 18
+case voltage == "115kV": 19
+case voltage == "220kV": 21
+case voltage == "230kV": 22
+case voltage == "380kV": 24
+case voltage == "400kV": 40
+else: 40
+
+getMinimumGroundClearance(voltage) =
+case voltage == "11kV": 10
+case voltage == "66kV": 25
+case voltage == "110kV": 35
+case voltage == "115kV": 38
+case voltage == "220kV": 40
+case voltage == "230kV": 45
+case voltage == "380kV": 50
+case voltage == "400kV": 60
+else: 60
+
+############################################################
+############################################################
+
+
+@Group("FROM Voltage Lookup Table", 20) 
+
+@Order(10)
+attr Conductor_Horizontal_Clearance = getMinHSeparation(Voltage) 
+const _Conductor_Horizontal_Clearance = meters(Conductor_Horizontal_Clearance)
+const HC = _Conductor_Horizontal_Clearance  # convenience name
+ 
+@Order(20)
+attr Conductor_Vertical_Clearance = getMinVSeparation(Voltage)
+const _Conductor_Vertical_Clearance = meters(Conductor_Vertical_Clearance)
+const VC = _Conductor_Vertical_Clearance  # convenience name
+
+@Order(30)
+attr Minimum_Ground_Clearance = getMinimumGroundClearance(Voltage) 
+const _Minimum_Ground_Clearance = meters(Minimum_Ground_Clearance)
+
+############################################################
+############################################################
+
+
+@Group("FROM Neighboring Spans", 30) 
+
+attr Maximum_Sag_Allowance = Minimum_Ground_Clearance # seems like an okay default. 
+const _Maximum_Sag_Allowance = meters(Maximum_Sag_Allowance)
+
+############################################################
+############################################################
+
+
+@Group("Attachment Points and Insulators", 40) 
+
+@Order(10)
+attr AttachmentPointSizePerHC = 0.04 
+const attachmentPointSize = HC * AttachmentPointSizePerHC
+
+# XX below logic is kind of function of inverse function. Fix it later.
+@Order(20)
+attr InsulatorHeightPerVC = 0.35
+const insulatorHeight = VC * InsulatorHeightPerVC	
+
+@Order(30)
+attr InsulatorWidthPerHC = 0.03 
+const insulatorWidth = HC * InsulatorWidthPerHC
+	
+
+############################################################
+############################################################
+
+@Group("For Lattice Towers", 49)
+
+@Order(10)
+attr WaistWidthPerHC_AlignH_Circs1 = 0.45
+@Order(20)
+attr WaistWidthPerHC_AlignH_Circs2 = 0.7
+@Order(30)
+attr WaistWidthPerHC_AlignV = 0.35
+
+const waistWidth = 
+	case Alignment == "Horizontal": 
+		case Circuits == 2: HC * WaistWidthPerHC_AlignH_Circs2
+		else: HC * WaistWidthPerHC_AlignH_Circs1
+	else: HC * WaistWidthPerHC_AlignV
+const waistHeight = lowestAttachmentHeight - bellyHeight  
+
+@Order(35)
+attr ArmHeightPerVC_AlignV = 0.3
+const armHeight = VC * ArmHeightPerVC_AlignV
+
+## XX Maybe Arm from vertical and crossbeam from horizontal should be grouped? 
+## XX Maybe grouped by tower type/align/whatever is in the naming.
+
+@Order(40)
+attr BellyHeightPerVC_AlignH_Circs1 = 0.9 
+@Order(50)
+attr BellyHeightPerVC_AlignH_Circs2 = 1.5 
+@Order(60)
+attr BellyHeightPerVC_AlignV = 0.1
+
+const bellyHeight =
+	case Alignment == "Horizontal": 
+		case Circuits == 1: HC * BellyHeightPerVC_AlignH_Circs1
+		else: HC * BellyHeightPerVC_AlignH_Circs2
+	else: HC * BellyHeightPerVC_AlignV
+
+@Order(70)
+attr ShieldHeightPerVC_AlignH_Circs1 = 0.5
+@Order(80)
+attr ShieldHeightPerVC_AlignH_Circs2 = 1
+@Order(90)
+attr ShieldHeightPerVC_AlignV_Shields1 = 2
+@Order(90)
+attr ShieldHeightPerVC_AlignV_Shields2 = 1.5
+
+const _Shield_Support_Height =
+	case Alignment == "Horizontal":  
+		case Circuits == 1: VC * ShieldHeightPerVC_AlignH_Circs1
+		else: VC * ShieldHeightPerVC_AlignH_Circs2
+	else:
+		case Shield_Wires < 2: VC * ShieldHeightPerVC_AlignV_Shields1
+		else: VC * ShieldHeightPerVC_AlignV_Shields2
+		
+
+@Order(93)
+attr PeakHeightPerVC_Shields1 = 0.6
+const peakHeight = 
+	case Shield_Wires < 2: PeakHeightPerVC_Shields1 * VC 
+	else: ((0.001)) * VC
+
+
+@Order(100)
+attr BaseWidthPerTowerHeight_AlignH = 0.20 # ASK: we might do an angle rather than width?
+
+@Order(105)
+attr BaseWidthPerTowerHeight_AlignV = 0.20
+
+const baseWidth = 
+	case Alignment == "Horizontal":
+		towerHeight * BaseWidthPerTowerHeight_AlignH   
+	else:
+		towerHeight * BaseWidthPerTowerHeight_AlignV
+	
+@Order(110)
+attr BeamWidthPerTowerHeight = 0.004
+const beamWidth = towerHeight * BeamWidthPerTowerHeight  
+ 
+@Order(120) @Color
+attr Beam_Color = "#C0C0C0"
+
+############################################################
+############################################################
+
+
+@Group("For Horizontal Lattice Towers", 50)
+
+
+@Order(10)
+attr CrossBeamHeightPerHC_Circs1 = 0.2
+@Order(20)
+attr CrossBeamHeightPerHC_Circs2 = 0.3
+@Order(30)
+attr CrossBeamDepthPerHC_Circs1 = 0.15
+@Order(40)
+attr CrossBeamDepthPerHC_Circs2 = 0.25
+
+const crossBeamHeight = 
+	case Circuits == 1: HC * CrossBeamHeightPerHC_Circs1
+	else: HC * CrossBeamHeightPerHC_Circs2
+const crossBeamDepth =
+	case Circuits == 1: HC * CrossBeamDepthPerHC_Circs1
+	else: HC * CrossBeamDepthPerHC_Circs2
+
+const holeTopGapForDoubleHang = tetraWidth /2
+const armBottomLength = 
+	case Insulator_Hang_Type == "Double": holeTop - holeTopGapForDoubleHang + armTipSizeInsulatorLength
+	else:
+		case Circuits == 2:	( holeTop * 0.75) + (armTipSizeInsulatorLength * 2)
+		else: ( holeTop + insulatorWidth ) / 2
+
+
+
+############################################################
+############################################################
+
+const h1 = _Minimum_Ground_Clearance
+const h2 = _Maximum_Sag_Allowance 
+const h3 = _Conductor_Vertical_Clearance 
+const h4 =
+	case Alignment == "Horizontal":
+		insulatorHeight + crossBeamHeight + _Shield_Support_Height
+		# XX redo tabove later so that there is only 1 case!
+	else: _Shield_Support_Height
+
+const towerHeight = h1 + h2 + h3 + h4 
+const lowestAttachmentHeight = _Minimum_Ground_Clearance + _Maximum_Sag_Allowance
+
+
+############################################################
+############################################################
+#    START RULE    #########################################
+
+
+
+@StartRule @InPoint @Out(granularity=separatedShapes) #4RPK
+TowerBasePoint -->
+	# Align scope coordinate system to all three world axes.
+	alignScopeToAxes()
+	# Flatten shape to point for testing in CE, but RPK works on Points in Pro.
+	s(0,0,0)
+	center(xz)
+	# Rotate to make negative x translation be in the left direction.
+	rotateScope(0, - Cardinal_Direction ,0)
+	primitiveQuad
+	# Insert AttachmentPoints.
+	DispatchAttachmentPoints
+	# Make tower to fit AttachmentPoints.
+	TowerConstruction
+	#dbug
+
+dbug -->
+	print("===============================")
+	print(Line_Type ) 
+	print(Structure_Type )
+	print(Voltage )
+	print(Circuits )
+	print(Alignment )
+	print(Shield_Wires ) 
+	print(Conductor_Vertical_Clearance ) 
+	print(Conductor_Horizontal_Clearance ) 
+	print("===============================")
+	NIL
+	
+TowerConstruction -->
+	case Line_Type == "Distribution":
+		DistributionPoleStructure	
+	case Structure_Type == "Lattice": 
+		LatticeStructure
+	case Structure_Type == "Pole":
+		TransmissionPoleStructure
+	case Structure_Type == "Substation":
+		SubstationStructure
+	else:
+		NIL
+
+
+######################################################
+######################################################
+# Attachment Points
+
+dispatchPointStartHeight = 
+	case Structure_Type == "Substation": substationAttachmentHeight
+	else: lowestAttachmentHeight
+
+
+DispatchAttachmentPoints -->
+	t(0, dispatchPointStartHeight,0)
+	[
+	case Line_Type == "Transmission":	
+		case Circuits == 1:
+			case Structure_Type == "Substation":
+				AttPoints_OneCircuit_Substation
+			case Alignment == "Horizontal":
+				AttPoints_OneCircuit_Horizontal
+			case Alignment == "Vertical": 
+				AttPoints_OneCircuit_Vertical
+			else:
+				AttPoints_OneCircuit_Offset
+		case Circuits == 2:
+			case Structure_Type == "Substation":
+				AttPoints_TwoCircuit_Substation
+			case Alignment == "Horizontal":
+				AttPoints_TwoCircuit_Horizontal
+			case Alignment == "Vertical": 
+				AttPoints_TwoCircuit_Vertical
+			else: 
+				AttPoints_TwoCircuit_Offset
+		else:
+			NIL
+	case Line_Type == "Distribution":
+		AttPoints_Distribution
+	else:
+		NIL
+	] 
+	NIL
+	
+
+
+const highestAttachmentHeight = lowestAttachmentHeight + highestAttachmentPointAboveLowest
+const highestAttachmentPointAboveLowest = 
+	case Line_Type == "Distribution": 
+		case Circuits == 1: 0
+		case Circuits == 2: VC
+		else: 9999
+	case Line_Type == "Transmission":
+		case Alignment == "Horizontal": 0
+		case Alignment == "Vertical": VC * 2
+		case Alignment == "Offset": VC 
+		else: 9999
+	else: 9999
+
+
+@Hidden
+attr noArm = false
+
+AttPoints_OneCircuit_Horizontal -->
+	PointLocation(1, - HC ,0,0)
+	PointLocation(2, 0,0,0)
+	PointLocation(3, HC ,0,0)
+	StickDown(0)
+
+AttPoints_OneCircuit_Vertical -->
+	PointLocation(1, - HC * 0.75, VC * 2, 0)
+	PointLocation(2, - HC * 0.75, VC , 0)
+	PointLocation(3, - HC * 0.75, 0, 0)
+	StickDown( VC * 2)
+
+AttPoints_OneCircuit_Offset -->
+ 	PointLocation(1, - HC * 0.75, VC , 0)
+	PointLocation(2, HC * 0.75, VC * 0.5, 0)
+	PointLocation(3, - HC * 0.75, 0, 0)
+	StickDown( VC )
+
+AttPoints_TwoCircuit_Horizontal -->
+	PointLocation(1, - HC * 2.5, 0, 0)
+	PointLocation(2, - HC * 1.5, 0, 0)
+	PointLocation(3, - HC * 0.5, 0, 0)
+	PointLocation(4,  HC * 0.5, 0, 0)
+	PointLocation(5,  HC * 1.5, 0, 0)
+	PointLocation(6,  HC * 2.5, 0, 0)
+	StickDown(0)
+	
+const XXRatioAttPoints_TwoCircuit_Vertical = 0.75
+ 	
+AttPoints_TwoCircuit_Vertical -->
+	PointLocation(1, - HC * 0.75, VC * 2, 0)
+	PointLocation(2, - HC * 0.75, VC , 0)
+	PointLocation(3, - HC * 0.75, 0, 0)
+	PointLocation(4,  HC * 0.75, VC * 2, 0)
+	PointLocation(5,  HC * 0.75, VC , 0)
+	PointLocation(6,  HC * 0.75, 0, 0)
+	StickDown( VC * 2)
+
+ 
+AttPoints_TwoCircuit_Offset -->
+	PointLocation(1, - HC * 1.1, VC , 0)
+	PointLocation(2, - HC * 1.6, 0, 0)
+	set(noArm, true)
+	PointLocation(3, - HC * 0.6, 0, 0)
+	set(noArm, false)
+	PointLocation(4,  HC * 1.1, VC , 0)
+	set(noArm, true)
+	PointLocation(5,  HC * 0.6, 0, 0)
+	set(noArm, false)
+	PointLocation(6,  HC * 1.6, 0, 0)
+	StickDown( VC )
+
+
+
+
+
+AttPoints_Distribution -->
+	set (attachPointToInsulator, false)
+	[						#Make this according to middle-offset type
+	case Circuits > 0:
+		PointLocation(1, leftPointOffsetX, 0, distPointOffsetZ)
+		PointLocation(2, middlePointOffsetX, 0, distPointOffsetZ)
+		PointLocation(3, rightPointOffsetX, 0, distPointOffsetZ)
+		StickDown(0) 
+	else: NIL
+	]
+	[
+	case Circuits == 2:
+		PointLocation(4, leftPointOffsetX, VC, distPointOffsetZ)
+		PointLocation(5, middlePointOffsetX, VC, distPointOffsetZ)
+		PointLocation(6, rightPointOffsetX, VC, distPointOffsetZ)
+		StickDown(VC)
+	else: NIL
+	]
+	NIL
+
+@Group("2001","For Substations")
+
+attr something = 0#XX
+
+
+
+AttPoints_OneCircuit_Substation -->
+	set(attachPointToInsulator,false)
+	PointLocation(1, - HC * 0.25, 0, 0)
+	PointLocation(2, 0, 0, 0)
+	PointLocation(3, HC * 0.25, 0, 0)
+	[
+	case Shield_Wires == 1:
+		PointLocation(-1, 0, substationShieldWireHeight, 0)
+	case Shield_Wires == 2:
+		PointLocation(-1, -HC * 0.125, substationShieldWireHeight, 0)
+		PointLocation(-2, HC * 0.125, substationShieldWireHeight, 0)
+	else: NIL
+	]
+
+AttPoints_TwoCircuit_Substation -->
+	set(attachPointToInsulator,false)
+	PointLocation(1, - HC * 0.625, 0, 0)
+	PointLocation(2, - HC * 0.375, 0, 0)
+	PointLocation(3, - HC * 0.125, 0, 0)
+	PointLocation(4,  HC * 0.125, 0, 0)
+	PointLocation(5,  HC * 0.375, 0, 0)
+	PointLocation(6,  HC * 0.625, 0, 0)
+	[
+	case Shield_Wires == 1:
+		PointLocation(-1, 0, substationShieldWireHeight, 0)
+	case Shield_Wires == 2:
+		PointLocation(-1, -HC * 0.5, substationShieldWireHeight, 0)
+		PointLocation(-2, HC * 0.5, substationShieldWireHeight, 0)
+	else: NIL
+	]
+	
+
+	
+
+	
+	
+
+@Hidden
+attr line = 0 
+@Hidden
+attr xOffset = 0
+@Hidden
+attr yOffset = 0
+@Hidden
+attr zOffset = 0
+
+PointLocation(lineNumber, xOff, yOff, zOff) -->
+	set(line, lineNumber)
+	set(xOffset, xOff)
+	set(yOffset, yOff)
+	set(zOffset, zOff)
+	PointTranslation
+
+PointTranslation -->	
+	t(xOffset,yOffset,zOffset)
+	PointModelOrExport
+
+PointModelOrExport -->
+	AttachmentPoint
+	s(0,0,0)
+	center(xyz)
+	set(material.opacity, 0)
+	comp(v){0: PointExport}
+
+@Hidden
+attr attachPointToInsulator = true
+
+
+AttachmentPoint -->
+	#[case Mode == "Stick Figure": StickArm else: NIL] #XX left in for now?
+	#[case Mode == "Full Model" && attachPointToInsulator: InsulatorMount else: NIL]
+	[case attachPointToInsulator: InsulatorMount else: NIL]
+	[case Line_Type == "Distribution" || Structure_Type == "Substation": DistributionMount else: NIL]
+	# With point sent to either of above rules, now make the sphere.
+	set(trim.horizontal, false)
+    set(trim.vertical, false)
+	s( attachmentPointSize , attachmentPointSize , attachmentPointSize )
+	center(xyz)
+	primitiveSphere(6,6)
+	color(0,0,0)
+	AttachmentPointSphere.
+
+PointExport -->
+	report("Line",line)
+	report("Tower",TowerNumber)
+	AttachmentPoint.	
+	/*  
+	print("line "+ line)
+	set(material.opacity, 1)
+	s( attachmentPointSize*3 , attachmentPointSize*3 , attachmentPointSize *3)
+	center(xyz)
+	primitiveSphere
+	[case line == 1: color(1,0,0) x. else: NIL]
+	[case line == 2: color(0,1,0) x. else: NIL]
+	[case line == 3: color(0,0,1) x. else: NIL]
+	[case line == 4: color(1,1,0) x. else: NIL]
+	[case line == 5: color(1,0,1) x. else: NIL]
+	[case line == 6: color(0,1,1) x. else: NIL]
+	[case line == -1: color(0,1,0) x. else: NIL]
+	[case line == -2: color(1,0.5,0.5) x. else: NIL]
+	*/
+
+DistributionMount -->
+	t(0,-insulatorWidth,0)
+	s( attachmentPointSize , 0, attachmentPointSize )
+	center(xz)
+	extrude(attachmentPointSize)
+	primitiveCone()
+	color(0.5,0.5,0.5)
+	
+
+
+##########################################################################
+##########################################################################
+# Lattice Structure
+
+
+
+	
+
+
+const frustumAngle = atan( waistHeight /(( baseWidth - waistWidth )/2))
+
+LatticeStructure -->
+	s( baseWidth , 0, baseWidth )
+	center(xz)
+	roofPyramid(byAngle, frustumAngle) 
+	split(y){ waistHeight : LowerBody}	
+
+
+LowerBody -->
+	comp(f){top: CageOrWindow | bottom: NIL | all: FrameBaseSide}
+	
+FrameBaseSide --> 
+	case Alignment == "Horizontal":
+		case Circuits == 1:
+			split(y){'0.4: FrustumFraming | '0.25: FrustumFraming | '0.20: FrustumFraming | '0.15: FrustumFraming}
+			#split(y){'0.6: FrustumFraming | '0.25: FrustumFraming | '0.20: FrustumFraming | '0.15: FrustumFraming}
+		else:
+			split(y){'0.45: FrustumFraming | '0.3: FrustumFraming | '0.25: FrustumFraming}
+	else: 
+		split(y){'0.4: FrustumFraming | '0.25: FrustumFraming | '0.20: FrustumFraming | '0.15: FrustumFraming}
+
+
+gap = scope.sy * sin(90-frustumAngle)
+bottomLessGap = bottom - gap
+
+# After rotation, to get new scope.sy: # XX Get rid of scope.sxsy. 
+complementCut = bottom * sin(cutAngle)
+upperLeftCut = scope.sy - complementCut
+
+@Hidden
+attr cutAngle = 0
+@Hidden
+attr bottom = 0
+   
+FrustumFraming -->
+	comp(f){side: FrustumSide}
+	
+# XX Get rid of scope.sx, sy.
+FrustumSide -->	
+	set(bottom, scope.sx)
+	set(cutAngle, atan(scope.sy/bottomLessGap))
+	rotateScope(0,0,cutAngle)
+	FS2
+FS2 -->
+	split(y){complementCut: BaseLowerRight | upperLeftCut: BaseUpperLeft}
+
+
+BaseUpperLeft -->
+	rotateScope(0,0,-cutAngle  * (2))
+	split(y){complementCut: BaseTriangleLeft | upperLeftCut: BaseTriangleUpper}
+
+
+BaseLowerRight -->
+	rotateScope(0,0,-cutAngle  * (2))
+	split(y){complementCut: BaseTriangleLower | upperLeftCut: BaseTriangleRight}
+
+BaseTriangleLeft -->
+	Frame
+BaseTriangleUpper -->
+	Frame
+BaseTriangleRight -->
+	Frame
+BaseTriangleLower -->
+	Frame
+
+
+CageOrWindow -->
+	case Alignment == "Horizontal":
+		WindowCage	
+	else:
+		CageBase
+
+
+############################################################
+# For Horizontal Lattice
+
+const crossBeamStartHeight = lowestAttachmentHeight + _insulatorHeight
+
+const cageHeightHorizontal = crossBeamStartHeight - waistHeight 
+		
+const tetraWidth = HC * ((0.2))
+const holeTop = 
+	case Circuits == 1: HC - tetraWidth
+	else: (2 * HC) - tetraWidth
+const cageWidthHorizontal = ( tetraWidth * 2) + holeTop
+
+const windowCageBottomHeight = 
+	case Circuits == 2: cageHeightHorizontal * ((0.7))
+	else: cageHeightHorizontal * ((0.6))
+const tetraHeight = cageHeightHorizontal - windowCageBottomHeight  
+
+const windowCageBottomWidth = cageWidthHorizontal - (2 *( tetraHeight * tan(windowNutantAngle))) 
+
+
+
+
+WindowCage -->
+	# x is width, y is depth.
+	s( cageWidthHorizontal , waistWidth ,0)
+	center(xy)
+	extrude( cageHeightHorizontal )
+	WindowCageUpperCut
+	
+const windowNutantAngle = #(upper)
+	case Circuits == 1: atan((( cageWidthHorizontal - waistWidth )/2) / cageHeightHorizontal ) 
+	else: atan(( tetraWidth /2) / tetraHeight )
+const windowNutantCutUpper = tetraHeight * sin( windowNutantAngle ) 
+
+const windowNutantAngleLower =
+	case Circuits == 1: windowNutantAngle
+	else: atan((( windowCageBottomWidth - waistWidth )/2) / windowCageBottomHeight )
+const windowNutantCutLower =
+	case Circuits == 1:  windowCageBottomHeight * sin( windowNutantAngle )
+	else: windowCageBottomHeight * sin(windowNutantAngleLower)
+	
+
+const windowUpperAngle = atan((( waistWidth - crossBeamDepth )/2) / cageHeightHorizontal )
+const windowUpperCut = cageHeightHorizontal * sin(windowUpperAngle)
+
+WindowCageUpperCut --> 
+	rotateScope(windowUpperAngle,0,0)
+	split(z){windowUpperCut: NIL | ~1: WindowCageUpperCut2}
+WindowCageUpperCut2 -->
+	rotateScope(-windowUpperAngle * 2,0,0)
+	split(z){~1: WindowCageMidCut CrossBeam | windowUpperCut: NIL}
+
+WindowCageMidCut -->
+	alignScopeToAxes(y)
+	split(y){ windowCageBottomHeight :  WindowCageLower | tetraHeight : WindowCageUpper}
+
+WindowCageLower -->
+	s( windowCageBottomWidth ,'1,'1)
+	center(x)
+	WindowNutantCutLower
+WindowNutantCutLower -->
+	alignScopeToAxes(y)
+	rotateScope(0, 0, -windowNutantAngleLower)
+	split(x){~1: WindowNutantCutLower2 | windowNutantCutLower: NIL}
+WindowNutantCutLower2 -->
+	rotateScope(0, 0, 2 * windowNutantAngleLower)
+	split(x){windowNutantCutLower: NIL | ~1: WindowHoleLower}
+	
+
+WindowCageUpper -->WindowNutantCutUpper
+		
+WindowNutantCutUpper -->
+	alignScopeToAxes(y)
+	rotateScope(0, 0, -windowNutantAngle)
+	split(x){~1: WindowNutantCutUpper2 | windowNutantCutUpper: NIL}
+WindowNutantCutUpper2 -->
+	rotateScope(0, 0, 2 * windowNutantAngle)
+	split(x){windowNutantCutUpper: NIL | ~1: WindowHoleUpper}
+
+
+@Hidden
+attr winBottomTopWidth = 0
+
+
+winBottomCut = waistWidth * sin(90-winBottomAngle)
+winBottomAngle = atan((waistWidth + (winBottomTopWidth- waistWidth )/2 - beamWidth)/ windowCageBottomHeight )  
+
+WindowHoleLower -->
+	alignScopeToAxes(y)
+	set(winBottomTopWidth, windowCageBottomWidth )
+	WindowHoleLowerLeftWithTriangle
+	
+WindowHoleLowerLeftWithTriangle -->
+	rotateScope(0,0,winBottomAngle)
+	split(x){winBottomCut : WindowHoleLowerTriangleCut | ~1: WindowHoleLowerRightTriangleCut}
+	
+WindowHoleLowerRightTriangleCut -->
+	rotateScope(0,0, -winBottomAngle * 2)
+	split(x){~1 : NIL | winBottomCut: WindowHoleLowerRight}
+	
+WindowHoleLowerTriangleCut -->
+	rotateScope(0,0, -winBottomAngle * 2)
+	split(x){~1 : WindowHoleLowerLeft | winBottomCut: WindowHoleLowerTriangle}
+
+
+windowHoleLowerTriangleHeight = ( waistWidth / 2) * tan(90-winBottomAngle)
+
+WindowHoleLowerTriangle -->
+	rotateScope(0,0, winBottomAngle)
+	comp(f){all: Frame}
+
+WindowHoleLowerLeft -->
+	alignScopeToAxes(y)
+	split(y){windowHoleLowerTriangleHeight: WindowHoleLowerLeft2 | ~1: WindowHoleLowerLeft3}
+	color(0,1,1) 
+
+WindowHoleLowerLeft2 --> comp(f){all: Frame}
+
+WindowHoleLowerLeft3 --> 
+	split(y){'1/3: WindowHoleLowerLeft31
+		| '1/3: WindowHoleLowerLeft32
+		| '1/3: WindowHoleLowerLeft33}	
+WindowHoleLowerLeft31 --> Frame 
+WindowHoleLowerLeft32 --> Frame
+WindowHoleLowerLeft33 --> Frame
+
+WindowHoleLowerRight -->
+	alignScopeToAxes(y)
+	split(y){windowHoleLowerTriangleHeight: WindowHoleLowerRight2 | ~1: WindowHoleLowerRight3}
+
+WindowHoleLowerRight2 --> Frame
+
+WindowHoleLowerRight3 --> 
+	split(y){'1/3: WindowHoleLowerRight31
+		| '1/3: WindowHoleLowerRight32
+		| '1/3: WindowHoleLowerRight33}	
+WindowHoleLowerRight31 --> Frame 
+WindowHoleLowerRight32 --> Frame
+WindowHoleLowerRight33 --> Frame
+	
+
+winHoleInsideNutantAngle = atan(q/ tetraHeight )  
+winHoleInsideNutantCut = tetraHeight * sin(winHoleInsideNutantAngle)
+q = tetraWidth - (tetraHeight * tan(windowNutantAngle)) - beamWidth
+
+
+WindowHoleUpper -->
+	alignScopeToAxes(y)
+	split(x){'0.5: Tetra | '0.5: rotateScope(0,180,0) Tetra}
+
+
+Tetra -->
+	split(x){ tetraWidth : Tetra2 | ~1: NIL} 
+
+Tetra2 -->
+	setPivot(xyz,0)
+	rotateScope(0, 0, -winHoleInsideNutantAngle)
+	split(x){~1: Tetra3 | winHoleInsideNutantCut: NIL}
+
+Tetra3 -->
+	alignScopeToAxes(y)
+	split(y){'1/3: Frame}*	
+
+
+
+WindowUpperRight -->
+	split(x){~1: NIL | holeTop / 2: WindowUpperRight2 } 
+
+WindowUpperRight2 --> 
+	rotateScope(0, 0, winHoleInsideNutantAngle)
+	split(x){winHoleInsideNutantCut: NIL | ~1: WindowUpperRight3}
+
+WindowUpperRight3 -->
+	alignScopeToAxes(y)
+	split(y){'1/3: WindowUpperRight31
+		| '1/3: WindowUpperRight32
+		| '1/3: WindowUpperRight33}	
+WindowUpperRight31 --> Frame 
+WindowUpperRight32 --> Frame
+WindowUpperRight33 --> Frame
+
+############################################################
+############################################################
+#
+# Vertical Lattice Tower
+
+const cageHeightToHighestConductor = 
+	( highestAttachmentHeight - lowestAttachmentHeight) + bellyHeight
+	
+const cageHeightVertical = 
+	cageHeightToHighestConductor + _Shield_Support_Height - peakHeight 
+
+
+CageBase -->
+	extrude(cageHeightVertical)
+	comp(f){top: Peak | all: CageSide}
+
+Peak -->
+	case Shield_Wires == 1:
+		PeakPyramid
+		# Make the shield wire mount here.
+		set(line, -1)
+		t(0,0,peakHeight)
+		ShieldWirePoint
+	case Shield_Wires == 2:
+		PeakWithInvertedArms
+	else:
+		PeakPyramid	
+
+PeakPyramid -->
+	roofPyramid(byHeight, peakHeight)
+	Frame
+
+# XX Very redundant with the regular arms...
+# but I guess its done, so whatever.
+PeakWithInvertedArms -->
+	PeakWithInvertedArmsTop
+	set(xOffset, XXRatioAttPoints_TwoCircuit_Vertical * HC)
+	ArmInverted(-2)
+	rotate(rel, scope, 0, 0, 180)
+	center(xy)
+	ArmInverted(-1)
+	
+PeakWithInvertedArmsTop -->
+	roofPyramid(byHeight, peakHeight)
+	comp(f){bottom: NIL | all: Frame}
+
+armInvertedLength = attPointDistanceToCage
+armInvertedHeight = armHeight * ((0.8)) 
+
+ArmInverted(lineNumber) -->
+	set(line,lineNumber)
+	rotate(rel, scope, 0, 90, 0)
+	t(0,0,waistWidth)
+	ArmInvertedMountPoint
+	s(armInvertedHeight,'1,0)
+	extrude(armInvertedLength)
+	ArmInverted8
+
+
+ArmInvertedMountPoint -->
+	s(armTipSizeInsulatorLength,armTipSizeInsulatorLength,0)
+	center(y)
+	t(0,0,armInvertedLength + armTipSizeInsulatorLength/2)
+	ArmInvertedShieldMountPoint
+ArmInvertedShieldMountPoint -->
+	s(0,0,0)
+	center(xy)
+	ShieldWirePoint
+
+armInvertedBottomAngle = atan((armInvertedHeight - (armTipSizeInsulatorLength) ) / armInvertedLength)
+armInvertedBottomCut = cos(armInvertedBottomAngle)* (armInvertedHeight - armTipSizeInsulatorLength)
+
+ArmInverted8 -->
+	setPivot(xyz,0)
+	rotateScope(0,0,armInvertedBottomAngle+180)
+	split(x){armInvertedBottomCut: NIL | ~1: ArmInverted9}
+
+
+ArmInverted9 -->
+	rotateScope(0,0,-armInvertedBottomAngle-180)
+	ArmInverted10
+
+armInvertedSideAngleVertical = atan(sideHalfTipCut / armInvertedLength)
+armInvertedSideCutVertical = cos(armInvertedSideAngleVertical) * sideHalfTipCut
+
+
+ArmInverted10 -->
+	rotateScope(armInvertedSideAngleVertical,0,0)
+	split(z){armInvertedSideCutVertical: NIL | ~1: ArmInverted11}
+ArmInverted11 -->
+	rotateScope(-armInvertedSideAngleVertical * 2,0,0)
+	split(z){~1: ArmInverted12 | armInvertedSideCutVertical: NIL}
+ArmInverted12 -->
+	ArmInvertedFraming
+ArmInvertedFraming --> Frame
+
+	
+
+
+##############################################################
+##############################################################
+# Lattice Framing
+
+
+Frame -->
+	case Mode == "Detailed Model":
+		comp(f){all: offset(- beamWidth ) comp(f){border: Beam}}
+	else:
+		X.
+
+Beam -->
+	color( Beam_Color )
+	
+
+cageSideWidth = waistWidth
+cageBoxCountFloat = cageHeightVertical /cageSideWidth
+cageBoxCountInt = floor(cageBoxCountFloat) 
+cageBoxHeight = cageHeightVertical / cageBoxCountInt
+
+CageSide -->
+	split(y){cageBoxHeight: CageBox}*
+
+
+boxAngle = atan(cageBoxHeight / cageSideWidth)
+boxCut = cageSideWidth * sin(boxAngle)
+CageBox -->
+	rotateScope(0,0,boxAngle)
+	CB2
+	
+CB2 -->
+	split(y){~1: CageTriangleLowerRight | boxCut: CageTriangleUpperLeft}
+
+
+CageTriangleUpperLeft -->
+	rotateScope(0,0,- boxAngle * 2)
+	split(y){~1: CageTriangleLeft | boxCut: CageTriangleUpper}
+
+CageTriangleLowerRight -->
+	rotateScope(0,0,- boxAngle * 2)
+	split(y){~1: CageTriangleLower | boxCut: CageTriangleRight}
+
+CageTriangleLeft -->
+	#green
+	Frame
+CageTriangleUpper -->
+	#blue
+	Frame
+CageTriangleRight -->
+	#red
+	Frame
+CageTriangleLower -->
+	#black
+	Frame
+
+########################################
+#CageBoxFraming -->
+#	X.
+
+
+
+
+
+
+#####################################################################
+#####################################################################
+# Insulators
+
+const insulatorLength =
+	case Insulator_Hang_Type == "Double": insulatorHeight /cos(45) 	  
+	else: insulatorHeight
+
+const insulatorMountWidth = 
+	case Insulator_Hang_Type == "Double":
+		case Alignment == "Horizontal": 
+			HC - tetraWidth
+		else: 	
+			insulatorLength * cos(45) * 2
+	else:
+		insulatorWidth * cos(45) * 2
+	
+const insulatorAngle = 
+	case Insulator_Hang_Type == "Double":
+		case Alignment == "Horizontal": 
+			atan(( insulatorMountWidth /2)/ insulatorLength )
+		else: ((45))
+	else: 0
+		
+		
+const _insulatorHeight = 
+	case Insulator_Hang_Type == "Double":
+		insulatorLength * cos(insulatorAngle)
+	else: insulatorLength
+
+InsulatorMount -->
+	InsulatorMountType
+	# Then move up by _insulatorHeight.
+	t(0,_insulatorHeight,0)
+	VerticalTowerArm
+	
+InsulatorMountType -->	
+	case Insulator_Hang_Type == "Double":
+		InsulatorVShape
+	else:
+		Insulator
+
+InsulatorVShape -->
+	alignScopeToAxes(y)
+	rotate(rel,scope,0,0,insulatorAngle)
+	center(xyz)
+	Insulator
+	rotate(rel,scope,0,0, -2 * insulatorAngle)
+	center(xyz)
+	Insulator
+
+Insulator -->
+	s( insulatorWidth , insulatorLength , insulatorWidth )
+	center(xz)
+	primitiveCube()
+	#split(y){'0.06: InsulatorConnection | '0.9: InsulatorRibs | '0.04: InsulatorConnection}
+	#attachmentPointSize
+	split(y){attachmentPointSize/2: InsulatorConnection | ~1: InsulatorRibs | insulatorWidth/2: InsulatorConnection}
+	
+InsulatorRibs -->
+	primitiveCylinder(8)
+	comp(f){top: color(0,0,0) X. | bottom: color(0,0,0) X. | all: InsulatorRibTexture}
+	
+InsulatorRibTexture -->
+	setupProjection(0, scope.xy, '1, '1)
+	texture("Insulator5.jpg")
+	projectUV(0)
+
+InsulatorConnection -->
+	s('0.3,'1,'0.2)
+	center(xz)
+	primitiveCube()
+	color(0,0,0)
+
+		
+		
+
+
+#####################################################################
+#####################################################################
+# Horizontal Lattice: Crossbeam, Arms and Ears.
+
+
+const earBoxHeightAtBeamHeight = crossBeamHeight + _Shield_Support_Height
+const earOverhangAtBeamHeight = earBoxHeightAtBeamHeight * tan(windowNutantAngle)
+const crossBeamEndCut = earOverhangAtBeamHeight * cos(windowNutantAngle)
+const beamWidthAtEarTipHeight = cageWidthHorizontal + (2*earOverhangAtBeamHeight)
+const earBoxWidthAtBeamHeight = tetraWidth + earOverhangAtBeamHeight 
+const earAngle = atan(earBoxHeightAtBeamHeight / earBoxWidthAtBeamHeight)  
+const earCut = tetraWidth * cos(90-earAngle)     
+
+CrossBeam -->
+	rotateScope(windowUpperAngle,0,0)
+	comp(f){top: CrossBeam2 | all: NIL} 
+
+CrossBeam2 -->
+	extrude(earBoxHeightAtBeamHeight)
+	s(beamWidthAtEarTipHeight,'1,'1) 
+	center(x)
+	setPivot(xyz,0)
+	rotateScope(0, 0, windowNutantAngle)
+	split(x){ crossBeamEndCut : NIL | ~1: CrossBeam3}	
+
+CrossBeam3 -->
+	#setPivot(xyz,0)
+	rotateScope(0, 0, -2 * windowNutantAngle)
+	split(x){~1: CrossBeam4 | crossBeamEndCut : NIL}	
+
+CrossBeam4 --> 
+	rotateScope(0, 0, windowNutantAngle)
+	ShieldWirePoints
+	Ears
+
+ShieldWirePoints -->
+	comp(f){top: ShieldWirePoints2}
+ShieldWirePoints2 -->
+	split(x){0.001: ShieldWirePoints3(-1) | ~1: NIL | 0.001: ShieldWirePoints3(-2)}
+ShieldWirePoints3(shieldWireNumber) -->
+	case shieldWireNumber == -1 && Shield_Wires > 0:
+		set(line, shieldWireNumber)
+		ShieldWirePoint
+	case shieldWireNumber == -2 && Shield_Wires > 1:
+		set(line, shieldWireNumber)
+		ShieldWirePoint
+	else: 
+		NIL
+
+	
+ShieldWirePoint -->
+	s(0,0,0)
+	center(xyz)
+	set(attachPointToInsulator, false)
+	PointModelOrExport
+
+Ears -->
+	alignScopeToAxes(y)
+	setPivot(xyz,0)
+	rotateScope(0,0,earAngle)
+	setPivot(xyz,0)
+	split(y){earCut: EarRight | ~1: Ears2 }
+
+EarRight -->
+	alignScopeToAxes(y)
+	EarCuts
+
+Ears2 -->
+	rotateScope(0,0,-earAngle * 2)
+	split(y){earCut: EarLeft | ~1: CrossBeam5}
+
+EarLeft -->
+	alignScopeToAxes(y)
+	rotateScope(0,180,0)
+	EarCuts
+	
+CrossBeam5 -->
+	alignScopeToAxes(y)
+	split(y){ crossBeamHeight : Frame | ~1: NIL} 
+
+ArmMount --> 
+	Frame
+	ArmMount2
+
+armMountOverhang = crossBeamHeight * tan(windowNutantAngle)
+armCutOverhang = crossBeamHeight * sin(windowNutantAngle)
+
+ArmMount2 -->
+	primitiveCube
+	t( tetraWidth ,0,0)
+	s( armBottomLength ,'1,'1)
+	ArmMount3
+ArmMount3 -->
+	setPivot(xyz,0)
+	rotateScope(0,0,-windowNutantAngle)
+	setPivot(xyz,0)
+	split(x){armCutOverhang: NIL | ~1: ArmMount4}
+	
+armDownAngle = atan(( crossBeamHeight - armTipSizeInsulatorLength)/( armBottomLength - armMountOverhang))
+armDownCut = ( armBottomLength - armMountOverhang) * sin(armDownAngle)
+
+ArmMount4 -->
+	setPivot(xyz,0)
+	rotateScope(0,0,windowNutantAngle)
+	setPivot(xyz,0)
+	rotateScope(0,0,-armDownAngle)
+	setPivot(xyz,0)
+	split(y){~1: ArmSideCuts | armDownCut: NIL}
+
+
+armSideOpp = ( crossBeamDepth - armTipSizeInsulatorLength) / 2
+armSideAngle = atan(armSideOpp / armBottomLength )
+armSideCut = armBottomLength * sin(armSideAngle)
+
+ArmSideCuts -->
+	#alignScopeToAxes(y)
+	setPivot(xyz,0)
+	rotateScope(0,0,armDownAngle)
+	setPivot(xyz,0)
+	rotateScope(0,0,-windowNutantAngle)
+	setPivot(xyz,0)
+	ArmSideCuts2
+ArmSideCuts2 -->
+	rotateScope(0,-armSideAngle,0)
+	split(z){armSideCut: NIL | ~1: ArmSideCuts3}	
+ArmSideCuts3 -->
+	rotateScope(0,armSideAngle * 2,0)
+	split(z){~1: ArmSideCuts4 | armSideCut: NIL}	
+ArmSideCuts4 --> Frame
+
+	
+EarCuts -->
+	alignScopeToAxes(y)
+	split(y){ crossBeamHeight : ArmMount | _Shield_Support_Height: EarSideCuts}
+
+earSideOpp = ( crossBeamDepth - armTipSizeInsulatorLength) / 2
+earSideAngle = atan(earSideOpp / _Shield_Support_Height)
+earSideCut = earSideOpp * cos(earSideOpp)
+
+EarSideCuts -->
+	rotateScope(earSideAngle,0,0)
+	setPivot(xyz,0)
+	split(z){earSideCut: NIL | ~1: EarSideCuts2}
+EarSideCuts2 -->
+	rotateScope(-2 * earSideAngle,0,0)
+	split(z){~1: EarHorizontalSplits | earSideCut: NIL}	
+EarHorizontalSplits -->
+	rotateScope(earSideAngle,0,0)
+	setPivot(xyz,0)
+	split(y){_Shield_Support_Height/2: Frame | _Shield_Support_Height/2: Frame}
+
+
+#####################################################################
+#####################################################################
+# Stick figure model.
+
+
+StickDown(yOff) -->
+	case Mode == "Stick Figure":
+		s( attachmentPointSize /2, 0, attachmentPointSize /2)
+		center(xz)
+		t(0, - lowestAttachmentHeight , 0)
+		extrude(yOff + lowestAttachmentHeight + ( attachmentPointSize /4))
+	else: 
+		NIL
+
+StickArm -->
+	rotate(rel, scope, 0, 0, -90)
+	center(xyz)
+	Stick2
+	
+	
+Stick2 -->
+	t(0, stickSign * (attachmentPointSize/2),0)
+	s(attachmentPointSize/2, 0, attachmentPointSize/2)
+	center(xz)
+	extrude(stickSign * extrudeBackDistance)
+
+extrudeBackDistance = abs(xOffset) - (attachmentPointSize * 0.75)
+
+stickSign = case xOffset < 0: 1 else: -1
+ 
+
+
+
+#####################################################################
+#####################################################################
+
+
+
+VerticalTowerArm -->
+	case Alignment == "Horizontal":
+		case Structure_Type == "Lattice": NIL
+		else: SmallInsulatorConnectionBox  
+	else:
+		VerticalTowerArmType
+
+VerticalTowerArmType -->
+	case Structure_Type == "Lattice":
+		LatticeArmVerticalCage
+	else:
+	    PoleArmVertical
+
+SmallInsulatorConnectionBox -->
+	primitiveCube
+	s( insulatorWidth , insulatorWidth , insulatorWidth )
+	center(xz)
+
+
+
+halfCage = ( waistWidth /2)
+attPointDistanceToCage = abs(xOffset) - halfCage 
+insulatorOffset = insulatorWidth / 2
+armLength = 
+	case Insulator_Hang_Type == "Double":
+		attPointDistanceToCage + insulatorOffset + ( insulatorMountWidth /2)
+	else: 
+		attPointDistanceToCage + insulatorOffset
+armWidth = waistWidth
+
+
+LatticeArmVerticalCage -->
+	case noArm: NIL
+	else:
+		case xOffset < 0:
+			rotateScope(0,180,0)
+			ArmLeftOrRight
+		else:
+			ArmLeftOrRight
+
+ArmLeftOrRight -->
+	t(-attPointDistanceToCage,0,0)
+	Arm2
+Arm2 -->
+	rotate(rel, scope, 0, 0, -90)	
+	center(xyz)
+	Arm3
+Arm3 -->
+	rotate(rel, scope, 0, 180, 0)	
+	center(xyz)
+	t('(0.5),0,0)
+	Arm4
+Arm4 -->
+	s(armHeight, 0, armWidth)
+	center(z)
+	Arm5
+Arm5-->
+	extrude(armLength)
+	Arm6
+Arm6 -->
+	rotate(rel, scope, 0, 90, 0)
+	center(xz)
+	Arm7
+Arm7 -->
+	s(armWidth, '1, armHeight)
+	center(xz)
+	Arm8
+
+armTipSizeInsulatorLength = insulatorWidth
+armTopAngle = atan((armHeight - (armTipSizeInsulatorLength) ) / armLength)
+armTopCut = cos(armTopAngle)* (armHeight - armTipSizeInsulatorLength)
+
+Arm8 -->
+	rotateScope(180-armTopAngle,0,0)
+	split(z){armTopCut: NIL | ~1: Arm9}
+
+sideHalfTipCut = (armWidth - armTipSizeInsulatorLength) / 2
+armSideAngleVertical = atan(sideHalfTipCut / armLength)
+armSideCutVertical = cos(armSideAngleVertical) * sideHalfTipCut
+
+Arm9 -->
+	rotateScope(armTopAngle,0,0)
+	setPivot(xyz,0)
+	Arm10
+Arm10 -->
+	rotateScope(0,0,armSideAngleVertical)
+	split(x){armSideCutVertical: NIL | ~1: Arm11}
+Arm11 -->
+	rotateScope(0,0,-armSideAngleVertical * 2)
+	split(x){~1: Arm12 | armSideCutVertical: NIL}
+Arm12 -->
+	ArmFraming
+	ArmInsulatorBeam
+
+ArmInsulatorBeam -->
+	alignScopeToAxes(y)
+	comp(f){bottom: ArmInsulatorBeam2} 
+ArmInsulatorBeam2 -->
+	t(0,0,-0.01)
+	split(x){~1: NIL | armTipSizeInsulatorLength: ArmInsulatorBeam3| ~1: NIL} 
+ArmInsulatorBeam3 -->
+	extrude(- beamWidth )
+	Beam
+	
+	
+ArmFraming --> 
+	Frame
+	
+	
+	
+	
+##############################################################
+##############################################################	
+#  POLES
+	
+############################################################
+############################################################
+
+@Group("For Transmission Poles",60)
+
+@Order(10)
+attr PoleTopDiameterPerHC = 0.12
+const _PoleTopDiameter = PoleTopDiameterPerHC * HC
+ 
+@Order(20)
+attr PoleBaseDiameterPerHC = 0.2
+const _PoleBaseDiameter = PoleBaseDiameterPerHC * HC
+
+@Order(30)
+attr PoleCrossBeamHeightPerVC = 0.1 
+const _Pole_Cross_Beam_Height = PoleCrossBeamHeightPerVC * VC
+
+@Order(40)
+attr PoleShieldBeamDiameterPerVC = 0.06 
+const shieldBeamDiameter = PoleShieldBeamDiameterPerVC * VC  
+
+@Order(50)
+attr PoleShieldArmHeightPerVC = 1
+const poleShieldSupportHeight = PoleShieldArmHeightPerVC * VC 
+
+@Order(60)
+attr PoleShieldArmLengthPerVC = 0.75 # This is redundant with DispatchPoints rule.
+const poleShieldArmLength =
+	case useShortShields: PoleShieldArmLengthPerVC * VC / 3
+	else: PoleShieldArmLengthPerVC * VC
+
+@Order(70)
+attr PoleCrossBeamWidthPerVC_Circ1 = 0.5 # TODO WHY IS THIS HERE?  
+const poleCircuitBeamWidth = PoleCrossBeamWidthPerVC_Circ1 * VC
+
+
+const PoleHeight = 
+	case Shield_Wires > 0: 
+		highestAttachmentHeight 
+		+ poleShieldSupportHeight 
+		+ armTipSizeInsulatorLength*2
+		+ _Pole_Cross_Beam_Height
+	else: 
+		highestAttachmentHeight
+		+ insulatorHeight 
+		+ armTipSizeInsulatorLength*2
+		+ _Pole_Cross_Beam_Height
+
+
+const connectionBoxFromPoleCenter = (( _PoleBaseDiameter + _PoleTopDiameter )/2)/2
+armLengthToAttPoint(off) = abs(off)
+
+
+
+
+TransmissionPoleStructure --> 
+	case Alignment == "Horizontal":
+		DoublePole
+	else:
+		Pole
+
+useShortShields = Alignment == "Horizontal" && Circuits == 1
+
+@Hidden
+attr poleName = ""
+
+makeLeftShield =
+	case Alignment == "Horizontal" && poleName == "left" && Shield_Wires > 0: true
+	case Alignment != "Horizontal" && Shield_Wires > 0: true
+	else: false
+makeRightShield = 
+	case Alignment == "Horizontal" && poleName == "right" && Shield_Wires == 2: true
+	case Alignment != "Horizontal" && Shield_Wires > 1: true
+	else: false
+
+
+
+# TODO Hard coded ratios below, but I think they're fine. 
+DoublePole -->
+	case Circuits == 1:
+		t(- HC * poleCircuitBeamWidth /2,0,0)
+		set(poleName, "left")
+		Pole
+		t( HC * poleCircuitBeamWidth ,0,0)
+		set(poleName, "right")
+		Pole
+		t(- HC * poleCircuitBeamWidth /2, crossBeamStartHeight ,0)
+		PoleCrossBeam( HC * poleCircuitBeamWidth )
+	else:
+		t(- HC ,0,0)
+		set(poleName, "left")
+		Pole
+		t( HC * 2,0,0)
+		set(poleName, "right")
+		Pole
+		t(- HC , crossBeamStartHeight ,0)
+		PoleCrossBeam( HC *5 + insulatorMountWidth )
+
+
+PoleCrossBeam(width) -->
+	t(0,_Pole_Cross_Beam_Height/2,0)
+	PoleCrossBeam2(width)
+PoleCrossBeam2(width) -->
+	s(_Pole_Cross_Beam_Height,0,_Pole_Cross_Beam_Height)
+	center(xyz)
+	PoleCrossBeam3(width)
+PoleCrossBeam3(width) -->
+	rotate(rel, scope, 0, 0, -90)
+	center(xyz)
+	PoleCrossBeam4(width)
+PoleCrossBeam4(width) -->
+	t(0,-width/2,0)
+	primitiveCylinder(8, _Pole_Cross_Beam_Height/2, width)
+
+
+Pole -->
+ 	PoleShieldArmsVertical
+	s( _PoleBaseDiameter , 0, _PoleBaseDiameter )
+	center(xz)
+	primitiveFrustum(PoleHeight, _PoleBaseDiameter / 2, _PoleTopDiameter / 2, 1)
+
+
+PoleShieldArmsVertical -->
+	case Shield_Wires > 0:
+		t(0, highestAttachmentHeight + poleShieldSupportHeight, 0)
+		s(_PoleBoxSize,0,_PoleBoxSize)
+		center(xz)
+		extrude(_PoleBoxSize)
+		PoleShieldArmsVertical2
+	else: NIL
+	
+PoleShieldArmsVertical2 -->
+	comp(f){left: PoleShieldArmsVertical3("left") | right: PoleShieldArmsVertical3("right") | all: X.}
+
+PoleShieldArmsVertical3(side) -->
+	case makeLeftShield && side == "left" && poleName != "right":
+		X.
+		set(line,-1)
+		PoleShieldArmsVertical3
+	case makeRightShield && side == "right" && poleName != "left":
+		X.
+		set(line,-2)	
+		PoleShieldArmsVertical3
+	else: X.
+	
+PoleShieldArmsVertical3 -->
+	s( shieldBeamDiameter , shieldBeamDiameter ,0)
+	center(xy)
+	extrude(poleShieldArmLength - armTipSizeInsulatorLength * 2)
+	primitiveCylinder(8)
+	comp(f){top: PoleShieldMount | all: X.}
+	
+	
+PoleShieldMount -->
+	PoleShieldMountCone
+	t(0,0,armTipSizeInsulatorLength)
+	PoleShieldMount2
+PoleShieldMount2 -->
+	s(0,0,0)
+	center(xy)
+	ShieldWirePoint
+
+PoleShieldMountCone -->
+	extrude(armTipSizeInsulatorLength)
+	primitiveCone(8)
+
+PoleArmVertical -->
+	case noArm: NIL
+	else:
+		case xOffset < 0:
+			rotateScope(0,180,0)
+			PoleArmLeftOrRight
+		else:
+			PoleArmLeftOrRight
+
+PoleArmLeftOrRight -->
+	t(0,_Pole_Cross_Beam_Height/2,0)
+	PoleArm2 
+PoleArm2 -->
+	s(_Pole_Cross_Beam_Height,0,_Pole_Cross_Beam_Height)
+	center(xyz)
+	PoleArm3
+PoleArm3 -->
+	rotate(rel, scope, 0, 0, -90)
+	center(xyz)
+	PoleArm4
+PoleArm4 -->
+	t(0,-armLengthToAttPoint(xOffset) + connectionBoxFromPoleCenter,0)	
+	PoleBox
+	PoleArm5
+PoleArm5 -->
+	primitiveCylinder(8,_Pole_Cross_Beam_Height/2,armLengthToAttPoint(xOffset) - connectionBoxFromPoleCenter + insulatorOffset + poleLengthExtensionPerHangType)
+
+poleLengthExtensionPerHangType = 
+	case Insulator_Hang_Type == "Single": 0
+	else: insulatorMountWidth /2
+	
+ 	
+PoleBox -->
+	t(0, -connectionBoxFromPoleCenter,0)	
+	s(_PoleBoxSize,0,_PoleBoxSize)
+	center(xz)
+	extrude(connectionBoxFromPoleCenter)
+	#primitiveCylinder(8,_Pole_Cross_Beam_Height,armLengthToAttPoint(xOffset) - connectionBoxFromPoleCenter + insulatorOffset)
+
+	
+	
+const _PoleBoxSize = _Pole_Cross_Beam_Height * 1.2
+	
+
+##############################################################
+##############################################################
+
+
+@Hidden
+attr coneHeightFrustum = 0   
+
+primitiveFrustum(height, radiusBottom, radiusTop, zScale) -->
+	# This runs on quad with yUp.
+	set(coneHeightFrustum, (radiusBottom * height) / (radiusBottom - radiusTop))
+	extrude(coneHeightFrustum)
+	primitiveCone()
+	split(y){height: s('1,'1,'zScale) center(z) X.}	
+
+
+
+#####################################################################
+#####################################################################
+# Distribution
+
+@Group("For Distribution Poles",70)
+
+@Order(10)
+@Enum("Wood", "Steel", "Concrete")
+attr DistPole_Material = "Wood" 
+
+@Order(10)
+attr DistPoleDiameterPerHC = 0.2
+const distPoleDiameter = DistPoleDiameterPerHC * HC  
+
+
+const distPoleHeight = highestAttachmentHeight + insulatorWidth
+
+const halfBoard = distPoleDiameter/2 + insulatorWidth*3 + HC
+const boardWidth = halfBoard * 2
+const boardDepth = distPoleDiameter * 0.3
+const middlePointOffsetX = distPoleDiameter/2 + insulatorWidth*3
+const rightPointOffsetX = halfBoard - insulatorWidth/2
+const leftPointOffsetX = -rightPointOffsetX
+const distPointOffsetZ = distPoleDiameter/2 * 1.25 
+const boardHeight = distPoleDiameter * 0.5
+
+
+
+attr DistPole_MaterialPerVC = 0.5
+const distPoleMaterialHeight = DistPole_MaterialPerVC * VC
+
+
+DistributionPoleStructure -->
+	DistributionPoleBeams
+	s(distPoleDiameter, 0, distPoleDiameter)
+	center(xz)
+	extrude(distPoleHeight)
+	primitiveCylinder()
+	DistributionPoleTexture
+
+DistributionPoleTexture -->
+	#setupProjection(0, scope.xy, scope.sx, distPoleMaterialHeight, 1)
+	#projectUV(0)
+	texture("assets/PowerTowerMaterials/" + DistPole_Material + ".jpg")
+
+#const distPointOffsetZ = distPoleDiameter/2 * 1.75 
+
+DistributionPoleBeams -->
+	[
+	case Circuits > 0:
+		t(0,lowestAttachmentHeight,distPointOffsetZ)
+		DistArmBeam
+	else: NIL
+	]
+	[
+	case Circuits == 2:
+		t(0, highestAttachmentHeight,distPointOffsetZ)
+		DistArmBeam
+	else: NIL
+	]
+
+
+DistArmBeam -->
+	t(0,-boardHeight -insulatorWidth ,0)
+	#setPivot(xyz,0)
+	s(boardWidth, boardHeight, boardDepth)
+	center(xz)
+	primitiveCube()
+	DistributionArmTexture
+
+DistributionArmTexture -->
+	comp(f){all: DistributionArmTexture2}
+
+DistributionArmTexture2 -->
+	setupProjection(0, scope.xy, scope.sx, distPoleMaterialHeight, 1)
+	projectUV(0)
+	rotateUV(0,90)
+	texture("assets/PowerTowerMaterials/" + DistPole_Material + ".jpg")
+
+
+#####################################################################
+#####################################################################
+
+substationShieldWireHeight = (VC * 0.25) # above other points.
+substationBeamWidth = 
+	case Circuits == 1: HC * 0.75
+	case Circuits == 2: HC * 1.5
+	else: 0
+substationBeamDiameter = attachmentPointSize * 1.1
+substationShieldBeamDiameter = attachmentPointSize * 0.8
+substationSideBeamDiameter = attachmentPointSize * 1.3
+
+substationAttachmentHeight = VC * 0.7
+substationAttachmentMountHeight = 
+	substationAttachmentHeight - (attachmentPointSize * 0.75)
+substationShieldWireMountHeight = 
+	substationAttachmentHeight + substationShieldWireHeight - (attachmentPointSize * 0.75) 
+
+SubstationStructure -->
+	color(Beam_Color)
+	SubstationMainBeam
+	SubstationShieldWireBeam
+	SubstationSideBeams
+
+SubstationMainBeam -->
+	t(0, substationAttachmentMountHeight - substationBeamDiameter, 0)
+	extrude(substationBeamDiameter)
+	s(substationBeamWidth, substationBeamDiameter, substationBeamDiameter)
+	center(xz)
+	SubstationStructure2
+SubstationStructure2 -->
+	setPivot(xyz,0)
+	rotateScope(0,0,90)
+	primitiveCylinder
+
+
+SubstationShieldWireBeam -->
+	case Shield_Wires > 0:
+		t(0, substationShieldWireMountHeight - substationShieldBeamDiameter, 0)
+		extrude(substationShieldBeamDiameter)
+		s(substationBeamWidth, substationShieldBeamDiameter, substationShieldBeamDiameter)
+		center(xz)
+		SubstationShieldWireBeam2
+	else: NIL
+	
+SubstationShieldWireBeam2 -->
+	setPivot(xyz,0)
+	rotateScope(0,0,90)
+	primitiveCylinder
+	
+	
+substationSideBeamHeight = 
+	case Shield_Wires > 0: substationShieldWireMountHeight + substationBeamDiameter/2
+	else: substationAttachmentHeight + substationBeamDiameter/2
+
+	
+SubstationSideBeams -->
+	SubstationSideBeams2
+	rotateScope(0,180,0)
+	SubstationSideBeams2
+
+SubstationSideBeams2 -->
+	s(substationSideBeamDiameter, substationSideBeamHeight, substationSideBeamDiameter)
+	center(xz)
+	t(-substationBeamWidth / 2,0,0)
+	primitiveCylinder
+	
+
+
+#####################################################################
+#####################################################################
+# Generic support functions.
+
+
+const metersPerFoot = 0.3048
+meters(lengthInEitherFeetOrMeters) = 
+	case Units == "Feet": lengthInEitherFeetOrMeters * metersPerFoot
+	else: lengthInEitherFeetOrMeters
+
+#####################################################################
+#####################################################################
+# Debugging stuff:
+
+
+
+randy --> color(rand,rand,rand)
+red --> color(1,0,0)
+blue --> color(0,0,1)
+green --> color(0,1,0)
+black --> color(0,0,0)
+
+	
+	
