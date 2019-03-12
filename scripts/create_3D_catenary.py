@@ -460,14 +460,33 @@ def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_rati
             arcpy.CreateFeatureclass_management(includedTransmissionLinesFC_dirname, includedTransmissionLinesFC_basename, geometry_type, "", has_m, has_z,
                                                     spatial_reference)
 
-        common_lib.delete_add_field(includedTransmissionLinesFC, from_tower_field, "LONG")
-        common_lib.delete_add_field(includedTransmissionLinesFC, to_tower_field, "LONG")
-        common_lib.delete_add_field(includedTransmissionLinesFC, line_number_field, "LONG")
-        common_lib.delete_add_field(includedTransmissionLinesFC, count_field, "LONG")
-        common_lib.delete_add_field(includedTransmissionLinesFC, sag_distance, "DOUBLE")
-        common_lib.delete_add_field(includedTransmissionLinesFC, horizontal_tension, "DOUBLE")
-        common_lib.delete_add_field(includedTransmissionLinesFC, line_lenght, "DOUBLE")
-        common_lib.delete_add_field(includedTransmissionLinesFC, weight_per_unit_length, "DOUBLE")
+        fields1_dict = {from_tower_field:"LONG",
+                            to_tower_field:"LONG",
+                            line_number_field:"LONG",
+                            count_field:"LONG",
+                            sag_distance:"DOUBLE",
+                            horizontal_tension:"DOUBLE",
+                            line_lenght:"DOUBLE",
+                            weight_per_unit_length:"DOUBLE"
+                        }
+
+        listoffields1 = []
+        for k, v in fields1_dict.items():
+            field = []
+            field.append(k)
+            field.append(v)
+            listoffields1.append(field)
+
+        arcpy.management.AddFields(includedTransmissionLinesFC, listoffields1)
+
+#        common_lib.delete_add_field(includedTransmissionLinesFC, from_tower_field, "LONG")
+#        common_lib.delete_add_field(includedTransmissionLinesFC, to_tower_field, "LONG")
+#        common_lib.delete_add_field(includedTransmissionLinesFC, line_number_field, "LONG")
+#        common_lib.delete_add_field(includedTransmissionLinesFC, count_field, "LONG")
+#        common_lib.delete_add_field(includedTransmissionLinesFC, sag_distance, "DOUBLE")
+#        common_lib.delete_add_field(includedTransmissionLinesFC, horizontal_tension, "DOUBLE")
+#        common_lib.delete_add_field(includedTransmissionLinesFC, line_lenght, "DOUBLE")
+#        common_lib.delete_add_field(includedTransmissionLinesFC, weight_per_unit_length, "DOUBLE")
 
         if lc_caller == "Create3Dcatenaryfromline":
             create_guidelines = False
@@ -491,17 +510,40 @@ def makeSpans(lc_scratch_ws, lc_inPoints, lc_testLineWeight, lc_sag_to_span_rati
                 arcpy.CreateFeatureclass_management(includedTransmissionLinesGuides_dirname, includedTransmissionLinesGuides_basename, geometry_type, "", has_m, has_z,
                                                     spatial_reference)
 
-            common_lib.delete_add_field(includedTransmissionLineGuides, from_tower_field, "LONG")
-            common_lib.delete_add_field(includedTransmissionLineGuides, to_tower_field, "LONG")
-            common_lib.delete_add_field(includedTransmissionLineGuides, line_number_field, "LONG")
-            common_lib.delete_add_field(includedTransmissionLineGuides, from_X_field, "DOUBLE")
-            common_lib.delete_add_field(includedTransmissionLineGuides, from_Y_field, "DOUBLE")
-            common_lib.delete_add_field(includedTransmissionLineGuides, from_Z_field, "DOUBLE")
-            common_lib.delete_add_field(includedTransmissionLineGuides, To_X_field, "DOUBLE")
-            common_lib.delete_add_field(includedTransmissionLineGuides, To_Y_field, "DOUBLE")
-            common_lib.delete_add_field(includedTransmissionLineGuides, To_Z_field, "DOUBLE")
-            common_lib.delete_add_field(includedTransmissionLineGuides, sag_distance, "DOUBLE")
-            common_lib.delete_add_field(includedTransmissionLineGuides, weight_per_unit_length, "DOUBLE")
+            fields2_dict = {from_tower_field: "LONG",
+                                to_tower_field: "LONG",
+                                line_number_field: "LONG",
+                                from_X_field: "DOUBLE",
+                                from_Y_field: "DOUBLE",
+                                from_Z_field: "DOUBLE",
+                                To_X_field: "DOUBLE",
+                                To_Y_field: "DOUBLE",
+                                To_Z_field: "DOUBLE",
+                                count_field: "LONG",
+                                sag_distance: "DOUBLE",
+                                weight_per_unit_length: "DOUBLE"
+                            }
+
+            listoffields2 = []
+            for k, v in fields2_dict.items():
+                field = []
+                field.append(k)
+                field.append(v)
+                listoffields2.append(field)
+
+            arcpy.management.AddFields(includedTransmissionLineGuides, listoffields2)
+
+#            common_lib.delete_add_field(includedTransmissionLineGuides, from_tower_field, "LONG")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, to_tower_field, "LONG")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, line_number_field, "LONG")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, from_X_field, "DOUBLE")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, from_Y_field, "DOUBLE")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, from_Z_field, "DOUBLE")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, To_X_field, "DOUBLE")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, To_Y_field, "DOUBLE")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, To_Z_field, "DOUBLE")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, sag_distance, "DOUBLE")
+#            common_lib.delete_add_field(includedTransmissionLineGuides, weight_per_unit_length, "DOUBLE")
         else:
             includedTransmissionLineGuides = None
 

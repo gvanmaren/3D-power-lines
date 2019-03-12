@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------------
-# Name:        CommonLib
+# Name:        common_lib
 # Purpose:     Contains common functions
 #
 # Author:      Gert van Maren
@@ -18,6 +18,7 @@ import time
 import traceback
 import datetime
 import logging
+import csv
 import sys
 import math
 from math import *
@@ -504,7 +505,7 @@ def set_null_to_value_in_fields(cn_table, cn_field_list, cn_value_list, error, d
                 pass
 
 
-def calculate_field_from_other_field(lyr, table, input_field, output_field, operator, value, debug):
+def calculate_field_from_other_field(lyr, table, input_field, output_field, operator, value, keep_null, debug):
     if debug == 1:
         msg("--------------------------")
         msg("Executing calculate_field_from_other_field...")
@@ -535,7 +536,10 @@ def calculate_field_from_other_field(lyr, table, input_field, output_field, oper
                             if operator == "minus":
                                 u_row[1] = u_row[0] - value
                         else:
-                            u_row[1] = u_row[0]
+                            if keep_null:
+                                u_row[1] = u_row[0]
+                            else:
+                                u_row[1] = value
 
                         u_cursor.updateRow(u_row)
 
@@ -997,8 +1001,8 @@ def import_table_with_required_fields(in_table, ws, out_table_name, local_list, 
         if arcpy.Exists(out_table_name):
             arcpy.Delete_management(out_table_name)
 
-        if arcpy.Exists(os.path.join(ws, out_table_name)):
-            arcpy.Delete_management(os.path.join(ws, out_table_name))
+#        if arcpy.Exists(os.path.join(ws, out_table_name)):
+#            arcpy.Delete_management(os.path.join(ws, out_table_name))
 
         result = arcpy.TableToTable_conversion(in_table, ws, out_table_name)
 
@@ -1982,7 +1986,8 @@ def set_data_paths_for_packaging(data_dir, gdb, fc, model_dir, pf,
                                     tiling_dir, scheme,
                                     building_table_dir, table,
                                     lidar_dir, las_file,
-                                    rule_dir, rule, layer_dir, lf):
+                                    rule_dir, rule, layer_dir, lf,
+                                    task_dir, task_file):
     try:
         scriptPath = sys.path[0]
         thisFolder = os.path.dirname(scriptPath)
@@ -2007,6 +2012,9 @@ def set_data_paths_for_packaging(data_dir, gdb, fc, model_dir, pf,
 
         layerPath = os.path.join(thisFolder, layer_dir)
         one_layerfile = os.path.join(layerPath, lf)
+
+        taskPath = os.path.join(thisFolder, task_dir)
+        one_taskfile = os.path.join(taskPath, task_file)
 
     except arcpy.ExecuteWarning:
         print((arcpy.GetMessages(1)))
@@ -2123,4 +2131,67 @@ def unitConversion(layer_unit, input_unit, debug):
             if debug == 1:
                 msg(msg_body)
 
+# get lidar class code - TEMPORARY until Pro 2.3
+def get_las_class_codes(lasd, outputdir):
+    try:
+        # Get LiDAR class codes
+        classCodes = []
 
+        lasStats = os.path.join(outputdir, 'lasStats_stats.csv')
+
+        if arcpy.Exists(lasStats):
+            arcpy.Delete_management(lasStats)
+
+        arcpy.LasDatasetStatistics_management(lasd, "OVERWRITE_EXISTING_STATS", lasStats, "DATASET", "COMMA",
+                                              "DECIMAL_POINT")
+
+        with open(lasStats, 'r') as f:
+            reader = csv.reader(f)
+
+            for row in reader:
+
+                if len(row) > 1 and row[1] == 'ClassCodes':
+                    classNum, className = row[0].split('_', 1)
+
+                    omitClassCodes = ['7', '12', '13', '14', '15', '16', '18']
+
+                    if classNum not in omitClassCodes:
+                        classCodes.append(int(classNum))
+
+        arcpy.AddMessage('Detected Class codes: {}'.format(classCodes))
+
+        arcpy.Delete_management(lasStats)
+
+        return classCodes
+
+    except arcpy.ExecuteError:
+        # Get the tool error messages
+        msgs = arcpy.GetMessages(2)
+        arcpy.AddError(msgs)
+    except Exception:
+        e = sys.exc_info()[1]
+        arcpy.AddMessage("Unhandled exception: " + str(e.args[0]))
+
+
+def get_num_selected(input_features):
+    try:
+        if is_layer(input_features) == 0:
+            count = 0
+        else:
+            num_features = int(arcpy.GetCount_management(get_full_path_from_layer(input_features)).getOutput(0))
+            num_selected = int(arcpy.GetCount_management(input_features).getOutput(0))
+
+            if num_selected == num_features:
+                count = 0
+            else:
+                count = num_selected
+
+        return count
+
+    except arcpy.ExecuteError:
+        # Get the tool error messages
+        msgs = arcpy.GetMessages(2)
+        arcpy.AddError(msgs)
+    except Exception:
+        e = sys.exc_info()[1]
+        arcpy.AddMessage("Unhandled exception: " + str(e.args[0]))
